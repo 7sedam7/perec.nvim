@@ -5,6 +5,8 @@ local finders = require("telescope.finders")
 local previewers = require("telescope.previewers")
 local config = require("telescope.config").values
 local make_entry = require("telescope.make_entry")
+local actions = require("telescope.actions")
+local action_state = require("telescope.actions.state")
 
 local scan = require("plenary.scandir")
 local log = require("plenary.log"):new()
@@ -65,6 +67,14 @@ M.search_queries = function(opts)
       end
     }),
     sorter = config.generic_sorter(opts),
+    attach_mappings = function(prompt_bufnr)
+      actions.select_default:replace(function()
+        local entry = action_state.get_selected_entry()
+        actions.close(prompt_bufnr)
+        M.query_files({ default_text = entry.value })
+      end)
+      return true
+    end,
     previewer = previewers.new_buffer_previewer({
       title = "Query Preview",
       define_preview = function(self, entry, status)
@@ -224,8 +234,8 @@ end
 -- M.search_files()
 -- M.grep_files()
 -- M.search_notes()
--- M.search_queries()
-M.query_files()
+M.search_queries()
+-- M.query_files()
 -- M.create_doc()
 
 return M
