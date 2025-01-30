@@ -146,7 +146,60 @@ M.search_queries = function(opts)
   }):find()
 end
 
-M.query_files = function ()
+M.query_files = function (opts)
+  opts = opts or {
+    default_text = 'SELECT '
+  }
+  opts.cwd = PEREC_DIR
+
+	local file_entry_maker = make_entry.gen_from_file(opts)
+
+	pickers.new(opts, {
+    finder = finders.new_dynamic({
+        fn = function(prompt)
+           local escaped_value = (prompt or ""):gsub("'", "'\\''")
+           if #escaped_value < 8 then
+            return {}
+           end
+           -- Build the command with proper shell escaping
+           local query = string.format("krafna '%s' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, PEREC_DIR:gsub("'", "'\\''"))
+           local handle = io.popen(query)
+           if not handle then
+             vim.notify("Failed to execute krafna command", vim.log.levels.ERROR)
+             return {}
+           end
+
+           local results = handle:read("*a")
+           handle:close()
+
+        print(query)
+
+           -- Parse TSV results                             
+           local files = {}
+           for line in results:gmatch("[^\r\n]+") do
+             local path = line:match("^[^\t]+")
+             if path then
+               table.insert(files, path)
+             end
+           end
+        if files and files[1] and files[1] == "file_path" then
+          table.remove(files, 1)
+          print(vim.inspect(files))
+          return files
+        end
+	        -- return scan.scan_dir(opts.cwd)
+	        return {}
+        end,
+	     entry_maker = function (entry)
+	       local file_entry = file_entry_maker(entry)
+	       file_entry.ordinal = vim.fn.fnamemodify(entry, ":t")
+	       log.debug(file_entry.ordinal)
+	       return file_entry
+	     end
+	   }),
+
+	   previewer = config.file_previewer(opts),
+	 }):find()
 end
 
 M.create_doc = function ()
@@ -172,7 +225,7 @@ end
 -- M.grep_files()
 -- M.search_notes()
 -- M.search_queries()
-M.query_queries()
+M.query_files()
 -- M.create_doc()
 
 return M
