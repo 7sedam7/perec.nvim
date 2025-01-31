@@ -3,7 +3,7 @@ local telescope_builtin = require('telescope.builtin')
 local pickers = require("telescope.pickers")
 local finders = require("telescope.finders")
 local previewers = require("telescope.previewers")
-local config = require("telescope.config").values
+local telescope_config = require("telescope.config").values
 local make_entry = require("telescope.make_entry")
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
@@ -60,7 +60,7 @@ M.find_queries = function(opts)
         }
       end
     }),
-    sorter = config.generic_sorter(opts),
+    sorter = telescope_config.generic_sorter(opts),
     attach_mappings = function(prompt_bufnr)
       actions.select_default:replace(function()
         local entry = action_state.get_selected_entry()
@@ -242,7 +242,7 @@ M.query_files = function (opts)
 	     end
 	   }),
 
-	   previewer = config.file_previewer(opts),
+	   previewer = telescope_config.file_previewer(opts),
 	 }):find()
 end
 
@@ -283,20 +283,101 @@ end
 -- M.query_files()
 -- M.create_doc()
 
-local function set_default_keymaps()
-  vim.api.nvim_set_keymap('n', '<leader>pf', ':lua require("perec").find_files()<CR>', { noremap = true, silent = true })
-  vim.api.nvim_set_keymap('n', '<leader>pg', ':lua require("perec").grep_files()<CR>', { noremap = true, silent = true })
-  vim.api.nvim_set_keymap('n', '<leader>pp', ':lua require("perec").find_queries()<CR>', { noremap = true, silent = true })
-  vim.api.nvim_set_keymap('n', '<leader>pq', ':lua require("perec").query_files()<CR>', { noremap = true, silent = true })
-  vim.api.nvim_set_keymap('n', '<leader>pa', ':lua require("perec").create_doc()<CR>', { noremap = true, silent = true })
+-- Default configuration
+local config = {
+  group = {
+    key = '<leader>p',
+    desc = 'Perec functions'
+  },
+  keymaps = {
+    {
+      mode = "n",
+      key = "<leader>pf",
+      action = M.find_files,
+      desc = "Find files within Perec vault"
+    },
+    {
+      mode = "n",
+      key = "<leader>pg",
+      action = M.grep_files,
+      desc = "Grep files within Perec vault"
+    },
+    {
+      mode = "n",
+      key = "<leader>pp",
+      action = M.find_queries,
+      desc = "Find krafna queries within Perec vault"
+    },
+    {
+      mode = "n",
+      key = "<leader>pq",
+      action = M.query_files,
+      desc = "Query files within Perec vault"
+    },
+    {
+      mode = "n",
+      key = "<leader>pa",
+      action = M.create_doc,
+      desc = "Create a buffer within Perec vault"
+    },
+  }
+}
+
+-- Check for required CLI tool
+function M.check_cli_tool()
+  local handle = io.popen("command -v krafna")
+  local result = handle:read("*a")
+  handle:close()
+
+  if result == "" then
+    error("CLI tool 'krafna' is not installed. Please install it before using this plugin.")
+  end
 end
 
--- Function to allow users to override key mappings
-M.setup = function(opts)
+-- Setup function
+function M.setup(opts)
+  -- Default options
   opts = opts or {}
-  if opts.keymaps ~= false then
-    set_default_keymaps()
+
+  -- Check CLI tool first
+  M.check_cli_tool()
+
+  -- Ensure Telescope is available
+  local ok, _telescope = pcall(require, 'telescope')
+  if not ok then
+    error("Telescope is required for this plugin. Please install nvim-telescope/telescope.nvim")
   end
+
+  -- Merge user options with defaults
+  config = vim.tbl_deep_extend("force", config, opts)
+
+  -- Setup default keymaps
+  local has_whichkey, whichkey = pcall(require, "which-key")
+
+  -- Use which-key if available
+  if has_whichkey then
+    whichkey.add({ { config.group.key, group = config.group.desc } })
+  end
+  for _, keymap in ipairs(config.keymaps) do
+    local mode = keymap.mode or "n"
+    local key = keymap.key
+    local action = keymap.action
+    local desc = keymap.desc
+
+    -- Use which-key if available
+    if has_whichkey then
+      whichkey.add({ { key, action, desc = desc, mode = mode } })
+    else
+    -- Fallback to standard vim.keymap
+      vim.keymap.set(mode, key, action, {
+        desc = desc,
+        silent = keymap.silent or true
+      })
+    end
+  end
+
+  -- Rest of plugin initialization
+  return config
 end
 
 -- Automatically call setup with default options if not called by the user
