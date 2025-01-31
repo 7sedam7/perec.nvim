@@ -238,7 +238,7 @@ M.create_doc = function ()
 end
 
 -- TODO
-extract_code_under_cursor = function ()
+local function extract_code_under_cursor()
   -- Get cursor position
   local row = vim.api.nvim_win_get_cursor(0)[1]
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
@@ -289,7 +289,29 @@ end
 -- M.find_files()
 -- M.grep_files()
 -- M.find_queries()
-M.query_files()
+-- M.query_files()
 -- M.create_doc()
+
+local function set_default_keymaps()
+  vim.api.nvim_set_keymap('n', '<leader>pf', ':lua require("perec").find_files()<CR>', { noremap = true, silent = true })
+  vim.api.nvim_set_keymap('n', '<leader>pg', ':lua require("perec").grep_files()<CR>', { noremap = true, silent = true })
+  vim.api.nvim_set_keymap('n', '<leader>pp', ':lua require("perec").find_queries()<CR>', { noremap = true, silent = true })
+  vim.api.nvim_set_keymap('n', '<leader>pq', ':lua require("perec").query_files()<CR>', { noremap = true, silent = true })
+  vim.api.nvim_set_keymap('n', '<leader>pa', ':lua require("perec").create_doc()<CR>', { noremap = true, silent = true })
+end
+
+-- Function to allow users to override key mappings
+M.setup = function(opts)
+  opts = opts or {}
+  if opts.keymaps ~= false then
+    set_default_keymaps()
+  end
+end
+
+-- Automatically call setup with default options if not called by the user
+if not M._setup_called then
+  M.setup()
+  M._setup_called = true
+end
 
 return M
