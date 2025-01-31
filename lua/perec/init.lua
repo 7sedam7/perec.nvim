@@ -156,6 +156,10 @@ M.query_files = function (opts)
   }
   opts.cwd = PEREC_DIR
 
+  -- -- ``` krafna select * from test ```
+  -- local code, lang = extract_code_under_cursor()
+  -- print(code)
+
 	local file_entry_maker = make_entry.gen_from_file(opts)
 
 	pickers.new(opts, {
@@ -233,11 +237,59 @@ M.create_doc = function ()
   vim.cmd('startinsert')
 end
 
+-- TODO
+extract_code_under_cursor = function ()
+  -- Get cursor position
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+
+  -- Find the code block boundaries
+  local start_line = nil
+  local end_line = nil
+  local in_block = false
+
+  -- Scan up for start of block
+  for i = row, 1, -1 do
+    local line = lines[i]
+    if line:match("```%s*%w+%s*$") then
+      start_line = i
+      break
+    end
+  end
+
+  -- Scan down for end of block
+  if start_line then
+    for i = row, #lines do
+      local line = lines[i]
+      if line:match("^```%s*$") then
+        end_line = i
+        break
+      end
+    end
+  end
+
+  -- If we found a complete block
+  if start_line and end_line then
+    -- Extract language name from opening line
+    local lang = lines[start_line]:match("^```%s*(%w+)%s*$")
+
+    -- Get the code content (excluding the ticks and language)
+    local code = table.concat(
+      vim.list_slice(lines, start_line + 1, end_line - 1),
+      "\n"
+    )
+
+    return code, lang
+  end
+
+  return nil, nil
+end
+
 -- log.debug(scan.scan_dir('.', { hidden = true, depth = 5 }))
 -- M.find_files()
 -- M.grep_files()
 -- M.find_queries()
--- M.query_files()
-M.create_doc()
+M.query_files()
+-- M.create_doc()
 
 return M
