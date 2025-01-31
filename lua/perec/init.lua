@@ -16,7 +16,7 @@ local PEREC_DIR = vim.fn.expand(vim.fn.expand("$PEREC_DIR"))
 
 local M = {}
 
-M.search_files = function(opts)
+M.find_files = function(opts)
   opts = opts or {}
   opts.cwd = PEREC_DIR
 
@@ -30,13 +30,13 @@ M.grep_files = function(opts)
   telescope_builtin.live_grep(opts)
 end
 
-M.search_notes = function (opts)
-  opts = opts or {}
-  opts.cwd = PEREC_DIR
+-- M.search_notes = function (opts)
+--   opts = opts or {}
+--   opts.cwd = PEREC_DIR
+--
+-- end
 
-end
-
-M.search_queries = function(opts)
+M.find_queries = function(opts)
   opts = opts or {}
   opts.cwd = PEREC_DIR
 
@@ -44,15 +44,9 @@ M.search_queries = function(opts)
   local result = handle:read("*a")
   handle:close()
 
-  local ok, json = pcall(vim.fn.json_decode, result)
-  if not ok then
-    vim.notify("Failed to parse krafna output", vim.log.levels.ERROR)
-    return
-  end
-
   local queries = {}
-  for _, item in ipairs(json) do
-    table.insert(queries, item)
+  for line in result:gmatch("[^\r\n]+") do
+     table.insert(queries, line)
   end
 
   pickers.new(opts, {
@@ -82,7 +76,7 @@ M.search_queries = function(opts)
         -- Escape single quotes in the query value
         local escaped_value = entry.value:gsub("'", "'\\''")
         -- Build the command with proper shell escaping
-        local query = string.format("krafna '%s' --from 'FRONTMATTER_DATA(\"%s\")'",
+        local query = string.format("krafna '%s' --include-fields 'file_name' --from 'FRONTMATTER_DATA(\"%s\")'",
             escaped_value,
             PEREC_DIR:gsub("'", "'\\''"))
         local handle = io.popen(query)
@@ -158,7 +152,7 @@ end
 
 M.query_files = function (opts)
   opts = opts or {
-    default_text = 'SELECT '
+    default_text = 'WHERE '
   }
   opts.cwd = PEREC_DIR
 
@@ -168,11 +162,11 @@ M.query_files = function (opts)
     finder = finders.new_dynamic({
         fn = function(prompt)
            local escaped_value = (prompt or ""):gsub("'", "'\\''")
-           if #escaped_value < 8 then
+           if #escaped_value < 7 then -- "WHERE a" is a minimal query of size 7
             return {}
            end
            -- Build the command with proper shell escaping
-           local query = string.format("krafna '%s' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, PEREC_DIR:gsub("'", "'\\''"))
+           local query = string.format("krafna '%s' --include-fields 'file_path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, PEREC_DIR:gsub("'", "'\\''"))
            local handle = io.popen(query)
            if not handle then
              vim.notify("Failed to execute krafna command", vim.log.levels.ERROR)
@@ -181,8 +175,6 @@ M.query_files = function (opts)
 
            local results = handle:read("*a")
            handle:close()
-
-        print(query)
 
            -- Parse TSV results                             
            local files = {}
@@ -194,7 +186,6 @@ M.query_files = function (opts)
            end
         if files and files[1] and files[1] == "file_path" then
           table.remove(files, 1)
-          print(vim.inspect(files))
           return files
         end
 	        -- return scan.scan_dir(opts.cwd)
@@ -215,27 +206,38 @@ end
 M.create_doc = function ()
   -- Create a new document in the PEREC_DIR
   local doc_name = vim.fn.input("Enter document name: ")
-  local doc_path = PEREC_DIR .. "/" .. doc_name .. ".md"
-  local file = io.open(doc_path, "w")
-  if file then
-    file:write("# " .. doc_name .. "\n")
-    file:close()
-    print("Document created at " .. doc_path)
-  else
-    print("Failed to create document")
+  if not doc_name:match("%.md$") then
+    doc_name = doc_name .. ".md"
   end
-end
+  local doc_path = PEREC_DIR .. "/" .. doc_name
 
-M.create_note = function ()
+  -- Edit the file
+  vim.cmd('edit ' .. vim.fn.fnameescape(doc_path))
 
+  -- Add template content
+  local template = {
+    "```",
+    "```",
+    "# " .. vim.fn.fnamemodify(doc_path, ":t:r"),  -- Add filename as title
+    "",
+    "",
+  }
+
+  -- Set the lines in buffer
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, template)
+
+  -- Move cursor to the end
+  vim.api.nvim_win_set_cursor(0, {5, 0})
+
+  -- Start in insert mode
+  vim.cmd('startinsert')
 end
 
 -- log.debug(scan.scan_dir('.', { hidden = true, depth = 5 }))
--- M.search_files()
+-- M.find_files()
 -- M.grep_files()
--- M.search_notes()
-M.search_queries()
+-- M.find_queries()
 -- M.query_files()
--- M.create_doc()
+M.create_doc()
 
 return M
