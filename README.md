@@ -17,7 +17,10 @@ Obsidian in Nvim without depending on Obsidian's existance.
   dependencies = {
     'nvim-telescope/telescope.nvim',
     'folke/which-key.nvim' -- optional
-  }
+  },
+  init = function()
+    require("perec")
+  end,
 }
 ```
 
