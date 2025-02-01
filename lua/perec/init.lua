@@ -40,14 +40,8 @@ M.find_queries = function(opts)
   opts = opts or {}
   opts.cwd = PEREC_DIR
 
-  local handle = io.popen("krafna --find " .. PEREC_DIR)
-  local result = handle:read("*a")
-  handle:close()
-
-  local queries = {}
-  for line in result:gmatch("[^\r\n]+") do
-     table.insert(queries, line)
-  end
+  local result = vim.fn.system( "krafna --find " .. opts.cwd )
+  local queries = vim.split(result, "[\r\n]+", {trimempty = true})
 
   pickers.new(opts, {
     finder = finders.new_table({
@@ -71,7 +65,7 @@ M.find_queries = function(opts)
     end,
     previewer = previewers.new_buffer_previewer({
       title = "Query Preview",
-      define_preview = function(self, entry, status)
+      define_preview = function(self, entry, _status)
         local bufnr = self.state.bufnr
         -- Escape single quotes in the query value
         local escaped_value = entry.value:gsub("'", "'\\''")
@@ -79,12 +73,10 @@ M.find_queries = function(opts)
         local query = string.format("krafna '%s' --include-fields 'file_name' --from 'FRONTMATTER_DATA(\"%s\")'",
             escaped_value,
             PEREC_DIR:gsub("'", "'\\''"))
-        local handle = io.popen(query)
-        local result = handle:read("*a")
-        handle:close()
+        result = vim.fn.system(query)
 
-        if result == "" then
-          vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {"No output from command"})
+        if vim.trim(result) == "" then
+          vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {"No files matching the query."})
           return
         end
 
@@ -187,6 +179,8 @@ local function extract_code_under_cursor()
       "\n"
     )
 
+    code = code:gsub("\n", " "):gsub("\r\n", " ")
+
     return code
   end
 
@@ -208,16 +202,9 @@ M.query_files = function (opts)
            if #escaped_value < 7 then -- "WHERE a" is a minimal query of size 7
             return {}
            end
-           -- Build the command with proper shell escaping
+           -- -- Build the command with proper shell escaping
            local query = string.format("krafna '%s' --include-fields 'file_path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, PEREC_DIR:gsub("'", "'\\''"))
-           local handle = io.popen(query)
-           if not handle then
-             vim.notify("Failed to execute krafna command", vim.log.levels.ERROR)
-             return {}
-           end
-
-           local results = handle:read("*a")
-           handle:close()
+           local results = vim.fn.system(query)
 
            -- Parse TSV results                             
            local files = {}
@@ -325,9 +312,7 @@ local config = {
 
 -- Check for required CLI tool
 function M.check_cli_tool()
-  local handle = io.popen("command -v krafna")
-  local result = handle:read("*a")
-  handle:close()
+  local result = vim.fn.system("command -v krafna")
 
   if result == "" then
     error("CLI tool 'krafna' is not installed. Please install it before using this plugin.")
