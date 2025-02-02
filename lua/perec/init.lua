@@ -18,14 +18,14 @@ local M = {}
 
 M.find_files = function(opts)
   opts = opts or {}
-  opts.cwd = PEREC_DIR
+  opts.cwd = opts.cwd or PEREC_DIR
 
   telescope_builtin.find_files(opts)
 end
 
 M.grep_files = function(opts)
   opts = opts or {}
-  opts.cwd = PEREC_DIR
+  opts.cwd = opts.cwd or PEREC_DIR
 
   telescope_builtin.live_grep(opts)
 end
@@ -38,7 +38,7 @@ end
 
 M.find_queries = function(opts)
   opts = opts or {}
-  opts.cwd = PEREC_DIR
+  opts.cwd = opts.cwd or PEREC_DIR
 
   local result = vim.fn.system( "krafna --find " .. opts.cwd )
   local queries = vim.split(result, "[\r\n]+", {trimempty = true})
@@ -72,7 +72,7 @@ M.find_queries = function(opts)
         -- Build the command with proper shell escaping
         local query = string.format("krafna '%s' --include-fields 'file_name' --from 'FRONTMATTER_DATA(\"%s\")'",
             escaped_value,
-            PEREC_DIR:gsub("'", "'\\''"))
+            opts.cwd:gsub("'", "'\\''"))
         result = vim.fn.system(query)
 
         if vim.trim(result) == "" then
@@ -191,7 +191,7 @@ M.query_files = function (opts)
   opts = opts or {
     default_text = extract_code_under_cursor() or 'WHERE '
   }
-  opts.cwd = PEREC_DIR
+  opts.cwd = opts.cwd or PEREC_DIR
 
 	local file_entry_maker = make_entry.gen_from_file(opts)
 
@@ -203,7 +203,7 @@ M.query_files = function (opts)
             return {}
            end
            -- -- Build the command with proper shell escaping
-           local query = string.format("krafna '%s' --include-fields 'file_path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, PEREC_DIR:gsub("'", "'\\''"))
+           local query = string.format("krafna '%s' --include-fields 'file_path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, opts.cwd:gsub("'", "'\\''"))
            local results = vim.fn.system(query)
 
            -- Parse TSV results                             
@@ -233,34 +233,41 @@ M.query_files = function (opts)
 	 }):find()
 end
 
-M.create_doc = function ()
+M.create_file = function (opts)
+  opts = opts or {}
+  opts.cwd = opts.cwd or PEREC_DIR
   -- Create a new document in the PEREC_DIR
-  local doc_name = vim.fn.input("Enter document name: ")
-  if not doc_name:match("%.md$") then
-    doc_name = doc_name .. ".md"
+  local filename = vim.fn.input("Enter document name: ")
+  if not filename:match("%.md$") then
+    filename = filename .. ".md"
   end
-  local doc_path = PEREC_DIR .. "/" .. doc_name
+  local filepath = opts.cwd .. "/" .. filename
 
   -- Edit the file
-  vim.cmd('edit ' .. vim.fn.fnameescape(doc_path))
+  vim.cmd('edit ' .. vim.fn.fnameescape(filepath))
 
-  -- Add template content
-  local template = {
-    "```",
-    "```",
-    "# " .. vim.fn.fnamemodify(doc_path, ":t:r"),  -- Add filename as title
-    "",
-    "",
-  }
+  -- check if file exists
+  local stat = vim.loop.fs_stat(filepath)
+  if stat and stat.type == 'file' then
+  else
+    -- Add template content
+    local template = {
+      "```",
+      "```",
+      "# " .. vim.fn.fnamemodify(filepath, ":t:r"),  -- Add filename as title
+      "",
+      "",
+    }
 
-  -- Set the lines in buffer
-  vim.api.nvim_buf_set_lines(0, 0, -1, false, template)
+    -- Set the lines in buffer
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, template)
 
-  -- Move cursor to the end
-  vim.api.nvim_win_set_cursor(0, {5, 0})
+    -- Move cursor to the end
+    vim.api.nvim_win_set_cursor(0, {5, 0})
 
-  -- Start in insert mode
-  vim.cmd('startinsert')
+    -- Start in insert mode
+    vim.cmd('startinsert')
+  end
 end
 
 -- log.debug(scan.scan_dir('.', { hidden = true, depth = 5 }))
@@ -268,7 +275,7 @@ end
 -- M.grep_files()
 -- M.find_queries()
 -- M.query_files()
--- M.create_doc()
+-- M.create_file()
 
 -- Default configuration
 local config = {
@@ -304,7 +311,7 @@ local config = {
     {
       mode = "n",
       key = "<leader>pa",
-      action = M.create_doc,
+      action = M.create_file,
       desc = "Create a buffer within Perec vault"
     },
   }
@@ -363,12 +370,6 @@ function M.setup(opts)
 
   -- Rest of plugin initialization
   return config
-end
-
--- Automatically call setup with default options if not called by the user
-if not M._setup_called then
-  M.setup()
-  M._setup_called = true
 end
 
 return M

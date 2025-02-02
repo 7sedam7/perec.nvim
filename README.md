@@ -19,7 +19,7 @@ Obsidian in Nvim without depending on Obsidian's existance.
     'folke/which-key.nvim' -- optional
   },
   init = function()
-    require("perec")
+    require("perec").setup()
   end,
 }
 ```
@@ -50,15 +50,14 @@ call plug#end()
 No setup required. The plugin will automatically configure itself.
 
 ```lua
--- Minimal setup, works out of the box
-require('perec')
+-- Minimal setup
+require('perec').setup()
 ```
 
 ### Custom Configuration
 ```lua
 -- Optional: Override default keymaps
 require('perec').setup({
-  debug = true,
   keymaps = {
     {
       mode = "n",
@@ -71,9 +70,9 @@ require('perec').setup({
 ```
 
 ## Default Keymaps
-- `<leader>pf`: Find files within Perec vault
-- `<leader>pg`: Grep files within Perec vault
-- `<leader>pp`: Find krafna queries within Perec vault
-- `<leader>pq`: Query files within Perec vault (opens query within cursor if there is one)
-- `<leader>pa`: Create a new buffer within Perec vault
+- `<leader>pf`: [find_files] Find files within Perec vault
+- `<leader>pg`: [grep_files] Grep files within Perec vault
+- `<leader>pp`: [find_queries] Find krafna queries within Perec vault
+- `<leader>pq`: [query_files] Query files within Perec vault (opens query within cursor if there is one)
+- `<leader>pa`: [create_file] Create a new buffer within Perec vault
 - Customize by passing custom keymaps in `.setup()`
