@@ -79,3 +79,8 @@ require('perec').setup({
 - `<leader>pq`: [query_files] Query files within Perec vault (opens query within cursor if there is one)
 - `<leader>pa`: [create_file] Create a new buffer within Perec vault
 - Customize by passing custom keymaps in `.setup()`
+
+## Roadmay
+(not in priority order, more stuff that benefits this in krafna repo roadmap)
+[ ] Add templating support
+[ ] Look into https://github.com/iwe-org/iwe
