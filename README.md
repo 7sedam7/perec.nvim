@@ -1,6 +1,6 @@
 # Perec Neovim Plugin
 
-Obsidian in Nvim without depending on Obsidian's existance.
+![Obsidian in Nvim without depending on Obsidian's existance.](demo.gif)
 
 ## Prerequisites
 - Neovim 0.9+
@@ -9,6 +9,8 @@ Obsidian in Nvim without depending on Obsidian's existance.
 - [krafna](https://github.com/7sedam7/krafna) CLI tool installed (with `PEREC_DIR` env set leading to your vault directory)
 
 ## Plugin Managers
+
+⚠️ Note: You have to call `require('perec').setup()` for plugin to be set up. If you have telescope lazy loading setup, removing it from dependencies speeds up start up time significantly. Setup does not require telescope.
 
 ### Lazy.nvim
 ```lua
@@ -58,6 +60,7 @@ require('perec').setup()
 ```lua
 -- Optional: Override default keymaps
 require('perec').setup({
+  cwd = $env.PEREC_DIR,
   keymaps = {
     {
       mode = "n",
