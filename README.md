@@ -83,4 +83,4 @@ require('perec').setup({
 ## Roadmay
 (not in priority order, more stuff that benefits this in krafna repo roadmap)
 [ ] Add templating support
-[ ] Look into https://github.com/iwe-org/iwe
+[ ] Setup working with encrypted files
