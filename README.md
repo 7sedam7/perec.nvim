@@ -10,7 +10,8 @@
 
 ## Plugin Managers
 
-⚠️ Note: You have to call `require('perec').setup()` for plugin to be set up. If you have telescope lazy loading setup, removing it from dependencies speeds up start up time significantly. Setup does not require telescope.
+> [!Note]
+> You have to call `require('perec').setup()` for plugin to be set up. If you have telescope lazy loading setup, removing it from dependencies speeds up start up time significantly. Setup does not require telescope.
 
 ### Lazy.nvim
 ```lua
