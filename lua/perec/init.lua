@@ -70,7 +70,7 @@ M.find_queries = function(opts)
         -- Escape single quotes in the query value
         local escaped_value = entry.value:gsub("'", "'\\''")
         -- Build the command with proper shell escaping
-        local query = string.format("krafna '%s' --include-fields 'file_name' --from 'FRONTMATTER_DATA(\"%s\")'",
+        local query = string.format("krafna '%s' --include-fields 'file.name' --from 'FRONTMATTER_DATA(\"%s\")'",
             escaped_value,
             opts.cwd:gsub("'", "'\\''"))
         result = vim.fn.system(query)
@@ -203,7 +203,7 @@ M.query_files = function (opts)
             return {}
            end
            -- -- Build the command with proper shell escaping
-           local query = string.format("krafna '%s' --include-fields 'file_path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, opts.cwd:gsub("'", "'\\''"))
+           local query = string.format("krafna '%s' --select-fields 'file.path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, opts.cwd:gsub("'", "'\\''"))
            local results = vim.fn.system(query)
 
            -- Parse TSV results                             
@@ -269,13 +269,6 @@ M.create_file = function (opts)
     vim.cmd('startinsert')
   end
 end
-
--- log.debug(scan.scan_dir('.', { hidden = true, depth = 5 }))
--- M.find_files()
--- M.grep_files()
--- M.find_queries()
--- M.query_files()
--- M.create_file()
 
 -- Default configuration
 local config = {
@@ -371,5 +364,12 @@ function M.setup(opts)
   -- Rest of plugin initialization
   return config
 end
+
+-- log.debug(scan.scan_dir('.', { hidden = true, depth = 5 }))
+-- M.find_files()
+-- M.grep_files()
+-- M.find_queries()
+-- M.query_files()
+-- M.create_file()
 
 return M
