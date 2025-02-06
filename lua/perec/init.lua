@@ -327,12 +327,6 @@ function M.setup(opts)
   -- Check CLI tool first
   M.check_cli_tool()
 
-  -- Ensure Telescope is available
-  local ok, _telescope = pcall(require, 'telescope')
-  if not ok then
-    error("Telescope is required for this plugin. Please install nvim-telescope/telescope.nvim")
-  end
-
   -- Merge user options with defaults
   config = vim.tbl_deep_extend("force", config, opts)
 
