@@ -203,7 +203,7 @@ M.query_files = function (opts)
             return {}
            end
            -- -- Build the command with proper shell escaping
-           local query = string.format("krafna '%s' --select-fields 'file.path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, opts.cwd:gsub("'", "'\\''"))
+           local query = string.format("krafna '%s' --include-fields 'file.path' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, opts.cwd:gsub("'", "'\\''"))
            local results = vim.fn.system(query)
 
            -- Parse TSV results                             
