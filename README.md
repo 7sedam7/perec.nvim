@@ -11,14 +11,14 @@
 ## Plugin Managers
 
 > [!Note]
-> You have to call `require('perec').setup()` for plugin to be set up. If you have telescope lazy loading setup, removing it from dependencies speeds up start up time significantly. Setup does not require telescope.
+> You have to call `require('perec').setup()` for plugin to be set up.
 
 ### Lazy.nvim
 ```lua
 {
   '7sedam7/perec.nvim',
   dependencies = {
-    'nvim-telescope/telescope.nvim',
+    'nvim-telescope/telescope.nvim', -- if Telescope is loaded otherwise, remove from here for faster startup.
     'folke/which-key.nvim' -- optional
   },
   init = function()
