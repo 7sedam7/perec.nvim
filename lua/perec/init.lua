@@ -8,7 +8,6 @@ local make_entry = require("telescope.make_entry")
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 
-local scan = require("plenary.scandir")
 local log = require("plenary.log"):new()
 log.level = "debug"
 
