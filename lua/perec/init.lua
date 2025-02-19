@@ -503,9 +503,9 @@ local function find_krafna_blocks()
 end
 
 function M.update_virtual_text()
-	local mode = vim.api.nvim_get_mode().mode
-	local cursor = vim.api.nvim_win_get_cursor(0)
-	local cursor_line = cursor[1]
+	-- local mode = vim.api.nvim_get_mode().mode
+	-- local cursor = vim.api.nvim_win_get_cursor(0)
+	-- local cursor_line = cursor[1]
 
 	-- Clear existing virtual text
 	vim.api.nvim_buf_clear_namespace(0, ns_id, 0, -1)
@@ -534,7 +534,7 @@ function M.update_virtual_text()
 end
 
 local last_called = 0
-local render_delay = 100
+local render_delay = 500
 local function setup_rendering()
 	local group = vim.api.nvim_create_augroup("KrafnaPreview", { clear = true })
 	vim.api.nvim_set_hl(0, "KrafnaTableNull", { fg = "#FF0000" })
@@ -548,6 +548,7 @@ local function setup_rendering()
 
 				-- Only proceed if enough time has passed since last call
 				if (current_time - last_called) >= render_delay then
+					print(current_time, last_called, current_time - last_called)
 					-- Only trigger if the buffer is a real file or new file
 					local bufnr = vim.api.nvim_get_current_buf()
 					local buftype = vim.bo[bufnr].buftype
