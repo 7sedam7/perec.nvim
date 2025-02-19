@@ -8,7 +8,9 @@
 - [OPTIONAL] [Which-key.nvim](https://github.com/folke/which-key.nvim)
 - [krafna](https://github.com/7sedam7/krafna) CLI tool installed (with `PEREC_DIR` env set leading to your vault directory)
 
-## Plugin Managers
+If you are using [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim/tree/4a28c135bc3548e398ba38178fec3f705cb26fe6), it does not conflict with rendering krafna queries. (but it does make the headers have the same color as every other table it renders)
+
+## Installation with Plugin Managers
 
 > [!Note]
 > You have to call `require('perec').setup()` for plugin to be set up.
@@ -81,7 +83,21 @@ require('perec').setup({
 - `<leader>pa`: [create_file] Create a new buffer within Perec vault
 - Customize by passing custom keymaps in `.setup()`
 
+There is a live preview of the query as extmap bellow the query, that get's updated on save and buffer open/enter/...
+
 ## Roadmay
 (not in priority order, more stuff that benefits this in krafna repo roadmap)
-[ ] Add templating support
-[ ] Setup working with encrypted files
+- [ ] Extract picker logic so it can be used by snacks and mini
+- [ ] Add templating support
+- [ ] Setup working with encrypted files
+
+## Acknowledgements
+
+- [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim/tree/4a28c135bc3548e398ba38178fec3f705cb26fe6) for table formatting inspiration
+- [CodeRabbit](https://coderabbit.io) for code reviews
+- Various AI tools for help with answering questions faster then me searching on Google/StackOverflow
+
+
+## Author
+
+[7sedam7](https://github.com/7sedam7)
