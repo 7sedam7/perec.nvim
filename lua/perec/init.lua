@@ -229,7 +229,7 @@ M.query_files = function(opts)
 				entry_maker = function(entry)
 					local file_entry = file_entry_maker(entry)
 					file_entry.ordinal = vim.fn.fnamemodify(entry, ":t")
-					log.debug(file_entry.ordinal)
+					-- log.debug(file_entry.ordinal)
 					return file_entry
 				end,
 			}),
@@ -533,29 +533,31 @@ function M.update_virtual_text()
 	end
 end
 
-local last_called = 0
+local last_called = {}
 local render_delay = 500
 local function setup_rendering()
 	local group = vim.api.nvim_create_augroup("KrafnaPreview", { clear = true })
 	vim.api.nvim_set_hl(0, "KrafnaTableNull", { fg = "#FF0000" })
 	vim.api.nvim_create_autocmd(
-		{ "BufEnter", "BufWinEnter", "WinEnter", "TabEnter", "BufNewFile", "BufWritePost", "BufReadPost" },
+		{ "BufEnter", "BufWinEnter", "WinEnter", "TabEnter", "BufNewFile", "BufWritePost", "BufReadPost", "FileType" },
 		{
 			group = group,
 			pattern = { "*.md" },
-			callback = function()
+			callback = function(event)
+				local buff_id = vim.api.nvim_get_current_buf()
 				local current_time = vim.loop.now()
+				local last_time = last_called[buff_id] or 0
 
 				-- Only proceed if enough time has passed since last call
-				if (current_time - last_called) >= render_delay then
-					print(current_time, last_called, current_time - last_called)
+				-- log.debug(event.event, vim.fn.bufname("%"), current_time, last_called, current_time - last_time)
+				if (current_time - last_time) >= render_delay then
 					-- Only trigger if the buffer is a real file or new file
 					local bufnr = vim.api.nvim_get_current_buf()
 					local buftype = vim.bo[bufnr].buftype
 					local filename = vim.api.nvim_buf_get_name(bufnr)
 
 					if buftype == "" and (filename ~= "" or vim.fn.exists("#BufNewFile<buffer>")) then
-						last_called = current_time
+						last_called[buff_id] = current_time
 						M.update_virtual_text()
 					end
 				end
