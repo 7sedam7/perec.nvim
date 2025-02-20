@@ -258,8 +258,9 @@ M.create_file = function(opts)
 	else
 		-- Add template content
 		local template = {
-			"```",
-			"```",
+			"---",
+			"tags:",
+			"---",
 			"# " .. vim.fn.fnamemodify(filepath, ":t:r"), -- Add filename as title
 			"",
 			"",
@@ -269,7 +270,7 @@ M.create_file = function(opts)
 		vim.api.nvim_buf_set_lines(0, 0, -1, false, template)
 
 		-- Move cursor to the end
-		vim.api.nvim_win_set_cursor(0, { 5, 0 })
+		vim.api.nvim_win_set_cursor(0, { 6, 0 })
 
 		-- Start in insert mode
 		vim.cmd("startinsert")
