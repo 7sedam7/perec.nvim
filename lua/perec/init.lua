@@ -215,7 +215,6 @@ M.query_files = function(opts)
 				entry_maker = function(entry)
 					local file_entry = file_entry_maker(entry)
 					file_entry.ordinal = vim.fn.fnamemodify(entry, ":t")
-					-- log.debug(file_entry.ordinal)
 					return file_entry
 				end,
 			}),
@@ -312,13 +311,6 @@ function M.check_cli_tool()
 	end
 end
 
--- log.debug(scan.scan_dir('.', { hidden = true, depth = 5 }))
--- M.find_files()
--- M.grep_files()
--- M.find_queries()
--- M.query_files()
--- M.create_file()
-
 --------------------------------------------------------------------------------
 ------ Krafna Preview (should extractc this to a separate file) ----------------
 --------------------------------------------------------------------------------
@@ -336,6 +328,102 @@ local bottom_right_pipe = "┘"
 local vertical_pipe = "│"
 local horizontal_pipe = "─"
 
+local defaults = {
+	max_length = 80,
+	alternate_highlighter = "KrafnaTableRowEven",
+}
+
+local function split_and_fold_line(line, opts)
+	local max_length = opts and opts.max_length or defaults.max_length
+	local highlighter = opts and opts.highlighter or "Conceal"
+	local columns = vim.split(line, "\t")
+	table.insert(columns, highlighter)
+	local result = { columns } -- First row with original data
+	local has_long_columns = false
+
+	-- Check if any column exceeds max_length
+	for _, col in ipairs(columns) do
+		if #col > max_length then
+			has_long_columns = true
+			break
+		end
+	end
+
+	-- If no long columns, return the original row
+	if not has_long_columns then
+		return { columns }
+	end
+
+	-- First, find all columns that need folding
+	local long_columns = {}
+	for i, col in ipairs(columns) do
+		if #col > max_length then
+			table.insert(long_columns, { index = i, content = col })
+			-- Initialize with first chunk
+			result[1][i] = string.sub(col, 1, max_length)
+		end
+	end
+
+	-- Then create folded rows for all long columns together
+	if #long_columns > 0 then
+		local all_done = false
+		local row_index = 1
+
+		while not all_done do
+			all_done = true
+			local need_new_row = false
+
+			-- Check if any column still has content to fold
+			for _, col_info in ipairs(long_columns) do
+				local i = col_info.index
+				local col = col_info.content
+
+				local start_pos = (row_index * max_length) + 1
+				local chunk = string.sub(col, start_pos, start_pos + max_length - 1)
+
+				if #chunk > 0 then
+					need_new_row = true
+					all_done = false
+				end
+			end
+
+			-- If needed, create a new row and fill it
+			if need_new_row then
+				local new_row = {}
+				for j = 1, #columns - 1 do
+					new_row[j] = "" -- Fill with empty strings
+				end
+				table.insert(new_row, highlighter) -- Add highlighter
+
+				-- Fill in the next chunk for each long column
+				for _, col_info in ipairs(long_columns) do
+					local i = col_info.index
+					local col = col_info.content
+
+					local start_pos = (row_index * max_length) + 1
+					local chunk = string.sub(col, start_pos, start_pos + max_length - 1)
+					if #chunk > 0 then
+						new_row[i] = chunk
+					end
+				end
+
+				table.insert(result, new_row)
+				row_index = row_index + 1
+			end
+		end
+	end
+
+	return result
+end
+
+local function row_highlighter(row_idx)
+	if row_idx % 2 == 0 then
+		return defaults.alternate_highlighter
+	else
+		return "Conceal"
+	end
+end
+
 local function format_krafna_result(tsv_data)
 	-- Split the input into lines
 	local lines = {}
@@ -349,13 +437,19 @@ local function format_krafna_result(tsv_data)
 	end
 
 	-- Split each line into columns
+	local folds_exist = false
+	local highlighters = {}
 	local data_rows = {}
-	for _, line in ipairs(lines) do
-		local cols = {}
-		for col in string.gmatch(line, "[^\t]+") do
-			table.insert(cols, col)
+	for i, line in ipairs(lines) do
+		local folded_rows = split_and_fold_line(line, { highlighter = row_highlighter(i) })
+		if folded_rows and #folded_rows > 1 then
+			folds_exist = true
 		end
-		table.insert(data_rows, cols)
+		for _, row in ipairs(folded_rows) do
+			table.insert(highlighters, table.remove(row))
+			table.insert(data_rows, row)
+		end
+		-- table.insert(data_rows, vim.split(line, "\t"))
 	end
 
 	-- Find the maximum width needed for each column
@@ -421,17 +515,19 @@ local function format_krafna_result(tsv_data)
 		-- local data_line = vertical_pipe
 		for col_idx, col_val in ipairs(row) do
 			if col_val == "NULL" then
-				table.insert(data_line, { " ", "Conceal" })
+				table.insert(data_line, { " ", folds_exist and highlighters[i] or "Conceal" })
 				table.insert(data_line, { col_val, "KrafnaTableNull" })
-				table.insert(
-					data_line,
-					{ string.rep(" ", col_widths[col_idx] - #col_val + 1) .. vertical_pipe, "Conceal" }
-				)
+				table.insert(data_line, {
+					string.rep(" ", col_widths[col_idx] - #col_val + 1),
+					folds_exist and highlighters[i] or "Conceal",
+				})
+				table.insert(data_line, { vertical_pipe, "Conceal" })
 			else
 				table.insert(data_line, {
-					" " .. col_val .. string.rep(" ", col_widths[col_idx] - #col_val + 1) .. vertical_pipe,
-					"Conceal",
+					" " .. col_val .. string.rep(" ", col_widths[col_idx] - #col_val + 1),
+					folds_exist and highlighters[i] or "Conceal",
 				})
+				table.insert(data_line, { vertical_pipe, "Conceal" })
 			end
 		end
 		table.insert(result, data_line)
@@ -536,6 +632,8 @@ local render_delay = 500
 local function setup_rendering()
 	local group = vim.api.nvim_create_augroup("KrafnaPreview", { clear = true })
 	vim.api.nvim_set_hl(0, "KrafnaTableNull", { fg = "#FF0000" })
+	vim.api.nvim_set_hl(0, "KrafnaTableRowEven", { reverse = true })
+	-- vim.api.nvim_set_hl(0, "KrafnaTableRowEven", { fg = "#FFFFFF", bg = "#000010" })
 	vim.api.nvim_create_autocmd(
 		{ "BufEnter", "BufWinEnter", "WinEnter", "TabEnter", "BufNewFile", "BufWritePost", "BufReadPost", "FileType" },
 		{
@@ -547,7 +645,6 @@ local function setup_rendering()
 				local last_time = last_called[buff_id] or 0
 
 				-- Only proceed if enough time has passed since last call
-				-- log.debug(event.event, vim.fn.bufname("%"), current_time, last_called, current_time - last_time)
 				if (current_time - last_time) >= render_delay then
 					-- Only trigger if the buffer is a real file or new file
 					local bufnr = vim.api.nvim_get_current_buf()
@@ -567,13 +664,14 @@ end
 -- Setup function
 function M.setup(opts)
 	-- Default options
-	opts = opts or {}
+	opts = opts or { config = {}, defaults = {} }
+	defaults = vim.tbl_deep_extend("force", defaults, opts.defaults)
 
 	-- Check CLI tool first
 	M.check_cli_tool()
 
 	-- Merge user options with defaults
-	config = vim.tbl_deep_extend("force", config, opts)
+	config = vim.tbl_deep_extend("force", config, opts.config)
 
 	-- Setup default keymaps
 	local has_whichkey, whichkey = pcall(require, "which-key")
@@ -607,5 +705,6 @@ function M.setup(opts)
 end
 
 -- setup_rendering()
+-- M.setup()
 
 return M
