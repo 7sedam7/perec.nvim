@@ -67,15 +67,7 @@ M.find_queries = function(opts)
 				title = "Query Preview",
 				define_preview = function(self, entry, _status)
 					local bufnr = self.state.bufnr
-					-- Escape single quotes in the query value
-					local escaped_value = entry.value:gsub("'", "'\\''")
-					-- Build the command with proper shell escaping
-					local query = string.format(
-						"krafna '%s' --include-fields 'file.name' --from 'FRONTMATTER_DATA(\"%s\")'",
-						escaped_value,
-						opts.cwd:gsub("'", "'\\''")
-					)
-					result = vim.fn.system(query)
+					result = M.execute_krafna(entry.value, { include_fields = "file.name" })
 
 					if vim.trim(result) == "" then
 						vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "No files matching the query." })
@@ -203,13 +195,7 @@ M.query_files = function(opts)
 					if #escaped_value < 7 then -- "WHERE a" is a minimal query of size 7
 						return {}
 					end
-					-- -- Build the command with proper shell escaping
-					local query = string.format(
-						"krafna '%s' --include-fields 'file.path' --from 'FRONTMATTER_DATA(\"%s\")'",
-						escaped_value,
-						opts.cwd:gsub("'", "'\\''") -- TODO: remove this escaping
-					)
-					local results = vim.fn.system(query)
+					local results = M.execute_krafna(escaped_value, { include_fields = "file.path" })
 
 					-- Parse TSV results
 					local files = {}
@@ -466,9 +452,20 @@ local function format_krafna_result(tsv_data)
 end
 
 -- Function to execute SQL and get results
-local function execute_krafna(krafna)
+M.execute_krafna = function(krafna, opts)
 	local escaped_value = (krafna or ""):gsub("'", "'\\''")
-	local query = string.format("krafna '%s' --from 'FRONTMATTER_DATA(\"%s\")'", escaped_value, PEREC_DIR)
+	local include_fields = opts and opts.include_fields or ""
+	local query = ""
+	if string.find(string.upper(escaped_value), "FROM", 1, true) ~= nil then
+		query = string.format("krafna '%s' --include-fields '%s'", escaped_value, include_fields)
+	else
+		query = string.format(
+			"krafna '%s' --include-fields '%s' --from 'FRONTMATTER_DATA(\"%s\")'",
+			escaped_value,
+			include_fields,
+			PEREC_DIR
+		)
+	end
 	return vim.fn.system(query)
 end
 
@@ -522,7 +519,7 @@ function M.update_virtual_text()
 		local block_end = block.start + block.num_lines
 		-- if cursor_line < block.start or cursor_line > block_end then
 		if true then
-			local result = execute_krafna(block.content)
+			local result = M.execute_krafna(block.content)
 			if result then
 				local formatted = format_krafna_result(result)
 				vim.api.nvim_buf_set_extmark(0, ns_id, block_end - 1, 0, {

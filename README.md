@@ -10,6 +10,16 @@
 
 If you are using [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim/tree/4a28c135bc3548e398ba38178fec3f705cb26fe6), it does not conflict with rendering krafna queries. (but it does make the headers have the same color as every other table it renders)
 
+## Features
+
+- Find files within Perec vault
+- Execute [krafna](https://github.com/7sedam7/krafna) queries (read more about queries at [krafna](kttps://github.com/7sedam7/krafna))
+  - You can query FRONTMATTER data (`FROM FRONTMATTER_DATA('<PEREC_DIR>')`)
+  - You can query LINKS (`FROM MD_LINKS('<PEREC_DIR>')`)
+  - You can query TASKS (`FROM MD_TASKS('<PEREC_DIR>')`)
+- There is a live render of queryies withinr Markdown files if in ``` krafna ``` code block.
+- If FROM is not specified, default is `FROM FORNTMATTER_DATA('<PEREC_DIR>')`.
+
 ## Installation with Plugin Managers
 
 > [!Note]
