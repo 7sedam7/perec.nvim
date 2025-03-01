@@ -664,14 +664,16 @@ end
 -- Setup function
 function M.setup(opts)
 	-- Default options
-	opts = opts or { config = {}, defaults = {} }
+	opts = opts or { keys = {}, defaults = {} }
 	defaults = vim.tbl_deep_extend("force", defaults, opts.defaults)
+
+	PEREC_DIR = opts.cwd or PEREC_DIR
 
 	-- Check CLI tool first
 	M.check_cli_tool()
 
 	-- Merge user options with defaults
-	config = vim.tbl_deep_extend("force", config, opts.config)
+	config = vim.tbl_deep_extend("force", config, opts.keys)
 
 	-- Setup default keymaps
 	local has_whichkey, whichkey = pcall(require, "which-key")

@@ -18,6 +18,7 @@ If you are using [render-markdown.nvim](https://github.com/MeanderingProgrammer/
   - You can query LINKS (`FROM MD_LINKS('<PEREC_DIR>')`)
   - You can query TASKS (`FROM MD_TASKS('<PEREC_DIR>')`)
 - There is a live render of queryies withinr Markdown files if in ``` krafna ``` code block.
+  - If cells are "too wide" they will be folded to the next line. Default is 80 characters, but can be changed in options. (`defaults: { max_width = 80 }`)
 - If FROM is not specified, default is `FROM FORNTMATTER_DATA('<PEREC_DIR>')`.
 
 ## Installation with Plugin Managers
@@ -74,14 +75,24 @@ require('perec').setup()
 -- Optional: Override default keymaps
 require('perec').setup({
   cwd = $env.PEREC_DIR,
-  keymaps = {
-    {
-      mode = "n",
-      key = "<leader>fx",
-      action = require('perec').find_files,
-      desc = "your desc"
+    defaults = {
+        max_width = 80,
+        alternate_highlighter = "KrafnaTableRowEven", -- Reverses colours
+    },
+    keys = {
+        group = {
+          key = "<leader>p",
+          desc = "Perec functions",
+        },
+        keymaps = {
+          {
+            mode = "n",
+            key = "<leader>fx",
+            action = require('perec').find_files,
+            desc = "your desc"
+          }
+        }
     }
-  }
 })
 ```
 
