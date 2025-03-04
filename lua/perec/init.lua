@@ -565,26 +565,7 @@ local function num_to_string(num)
 	return s
 end
 
-local function set_keymap(mode, key, action, desc, group)
-	desc = desc or ""
-	group = group or false
-
-	-- Use which-key if available
-	if has_whichkey then
-		if group then
-			whichkey.add({ { key, action, group = desc, mode = mode, hidden = false } })
-		end
-		whichkey.add({ { key, action, desc = desc, mode = mode, hidden = false } })
-	else
-		-- Fallback to standard vim.keymap
-		vim.keymap.set(mode, key, action, {
-			desc = desc,
-			noremap = false,
-			silent = false,
-		})
-	end
-end
-
+krafna_quick_access = {}
 local function set_quick_access(krafna_data)
 	local line_nums = {}
 	for k in pairs(krafna_data) do
@@ -592,17 +573,26 @@ local function set_quick_access(krafna_data)
 	end
 	table.sort(line_nums)
 
-	set_keymap("n", "<leader>pd", M.render_quick_access, "Go to file from query preview", true)
+	-- Set keymaps
+	if has_whichkey then
+		whichkey.add({
+			{ "<leader>pd", nil, desc = "Go to file from query preview", mode = "n", hidden = false },
+		})
+	end
+	vim.keymap.set("n", "<leader>pd", M.render_quick_access, {
+		desc = "Go to file from query preview",
+		noremap = true,
+		silent = true,
+	})
 
+	-- Generate key
 	local i = 1
 	for _, line_num in ipairs(line_nums) do
 		local krafna_code_block_data = krafna_data[line_num]
 		for _, data in ipairs(krafna_code_block_data) do
 			if data.metadata ~= nil then
 				data.metadata.keys = num_to_string(i)
-				set_keymap("n", "<leader>pd" .. data.metadata.keys, function()
-					vim.cmd("e " .. data.metadata.file_path)
-				end, "Go to file: " .. data.metadata.file_path)
+				krafna_quick_access[data.metadata.keys] = data.metadata.file_path
 				i = i + 1
 			end
 		end
@@ -628,9 +618,12 @@ local function get_krafna(line, krafna_query, from_cache)
 
 	if not from_cache then
 		local result = M.execute_krafna(krafna_query, { include_fields = "file.path" })
-		krafna_cache[line] = organise_krafna_result(result)
+		local organized_results = organise_krafna_result(result)
+		krafna_cache[line] = organized_results
 
-		set_quick_access(krafna_cache)
+		if #organized_results > 0 then
+			set_quick_access(krafna_cache)
+		end
 	end
 
 	return krafna_cache[line]
@@ -680,35 +673,60 @@ local function remove_first_row_from_krafna_data()
 	end
 end
 
+function get_char_with_timeout(timeout_ms)
+	local char = nil
+	vim.fn.wait(timeout_ms, function()
+		local _char = vim.fn.getchar(0)
+		if _char ~= 0 then
+			char = _char
+			return true
+		end
+		return false
+	end)
+	return char
+end
+
 function M.render_quick_access(opts)
 	opts = opts or {}
 
 	add_keys_to_krafna_data()
-
 	M.update_virtual_text({ from_cache = true })
+
+	vim.cmd("redraw")
+
+	local lookup_keys = ""
+	while true do
+		local key = lookup_keys == "" and vim.fn.getchar() or get_char_with_timeout(500)
+		if key == nil then
+			if krafna_quick_access[lookup_keys] then
+				vim.cmd("e " .. krafna_quick_access[lookup_keys])
+			end
+			break
+		end
+		local char = vim.fn.nr2char(key)
+
+		if char == "\27" then -- ESC key
+			break
+		end
+
+		lookup_keys = lookup_keys .. char
+	end
+
+	remove_first_row_from_krafna_data()
+	M.update_virtual_text({ from_cache = true })
+	-- end)
+
+	return true
 end
 
 local function cleanup_buffer_maps_and_cache()
 	if has_whichkey then
-		whichkey.add({ { "<leader>pd", nil, group = "", mode = "n", hidden = true } })
-		for _, krafna_code_block_data in pairs(krafna_cache) do
-			for _, data in ipairs(krafna_code_block_data) do
-				if data.metadata ~= nil then
-					whichkey.add({ { "<leader>pd" .. data.metadata.keys, nil, desc = "", mode = "n", hidden = true } })
-				end
-			end
-		end
-	else
-		local leader = vim.api.nvim_replace_termcodes("<Leader>", true, false, true)
-		local to_remove = leader .. "pd"
-		for _, keymap in ipairs(vim.api.nvim_get_keymap("n")) do
-			if keymap.lhs and string.sub(keymap.lhs, 1, #to_remove) == to_remove then
-				vim.api.nvim_del_keymap("n", keymap.lhs)
-			end
-		end
+		whichkey.add({ { "<leader>pd", nil, desc = "", mode = "n", hidden = true } })
 	end
+	pcall(vim.keymap.del, "n", "<leader>pd")
 
 	krafna_cache = {}
+	krafna_quick_access = {}
 end
 
 local last_called = {}
@@ -730,8 +748,6 @@ local function setup_rendering()
 
 				-- Only proceed if enough time has passed since last call
 				if (current_time - last_time) >= render_delay then
-					-- reset krafna cache
-					cleanup_buffer_maps_and_cache()
 					-- Only trigger if the buffer is a real file or new file
 					local bufnr = vim.api.nvim_get_current_buf()
 					local buftype = vim.bo[bufnr].buftype
@@ -745,6 +761,14 @@ local function setup_rendering()
 			end,
 		}
 	)
+	vim.api.nvim_create_autocmd({ "BufLeave" }, {
+		group = group,
+		pattern = { "*.md" },
+		callback = function(event)
+			-- reset krafna cache
+			cleanup_buffer_maps_and_cache()
+		end,
+	})
 end
 
 -- Default configuration
