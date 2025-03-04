@@ -554,7 +554,12 @@ local function find_krafna_blocks()
 	return blocks
 end
 
-local function num_to_string(num)
+local function generate_keymap_keys(num)
+	if num == 1 then
+		return "a"
+	elseif num == 2 then
+		return "ab"
+	end
 	local s = ""
 	while num > 0 do
 		num = num - 1
@@ -566,6 +571,15 @@ local function num_to_string(num)
 end
 
 krafna_quick_access = {}
+krafna_quick_access_keys = {}
+function update_krafna_quick_access_keys(hash, keys)
+	keys = keys:sub(1, #keys - 1)
+	for i = 1, #keys do
+		local prefix = keys:sub(1, i)
+		hash[prefix] = true
+	end
+end
+
 local function set_quick_access(krafna_data)
 	local line_nums = {}
 	for k in pairs(krafna_data) do
@@ -591,8 +605,9 @@ local function set_quick_access(krafna_data)
 		local krafna_code_block_data = krafna_data[line_num]
 		for _, data in ipairs(krafna_code_block_data) do
 			if data.metadata ~= nil then
-				data.metadata.keys = num_to_string(i)
+				data.metadata.keys = generate_keymap_keys(i)
 				krafna_quick_access[data.metadata.keys] = data.metadata.file_path
+				update_krafna_quick_access_keys(krafna_quick_access_keys, data.metadata.keys)
 				i = i + 1
 			end
 		end
@@ -698,9 +713,6 @@ function M.render_quick_access(opts)
 	while true do
 		local key = lookup_keys == "" and vim.fn.getchar() or get_char_with_timeout(500)
 		if key == nil then
-			if krafna_quick_access[lookup_keys] then
-				vim.cmd("e " .. krafna_quick_access[lookup_keys])
-			end
 			break
 		end
 		local char = vim.fn.nr2char(key)
@@ -710,11 +722,17 @@ function M.render_quick_access(opts)
 		end
 
 		lookup_keys = lookup_keys .. char
+		if krafna_quick_access_keys[lookup_keys] ~= true then
+			break
+		end
 	end
 
 	remove_first_row_from_krafna_data()
 	M.update_virtual_text({ from_cache = true })
-	-- end)
+
+	if krafna_quick_access[lookup_keys] then
+		vim.cmd("e " .. krafna_quick_access[lookup_keys])
+	end
 
 	return true
 end
@@ -727,6 +745,7 @@ local function cleanup_buffer_maps_and_cache()
 
 	krafna_cache = {}
 	krafna_quick_access = {}
+	krafna_quick_access_keys = {}
 end
 
 local last_called = {}
@@ -858,6 +877,6 @@ function M.setup(opts)
 end
 
 -- setup_rendering()
-M.setup()
+-- M.setup()
 
 return M
