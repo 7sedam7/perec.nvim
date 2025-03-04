@@ -12,6 +12,7 @@ local log = require("plenary.log"):new()
 log.level = "debug"
 
 local PEREC_DIR = vim.fn.expand(vim.fn.expand("$PEREC_DIR"))
+local has_whichkey, whichkey = false, nil
 
 local M = {}
 
@@ -261,46 +262,6 @@ M.create_file = function(opts)
 		vim.cmd("startinsert")
 	end
 end
-
--- Default configuration
-local config = {
-	group = {
-		key = "<leader>p",
-		desc = "Perec functions",
-	},
-	keymaps = {
-		{
-			mode = "n",
-			key = "<leader>pf",
-			action = M.find_files,
-			desc = "Find files within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pg",
-			action = M.grep_files,
-			desc = "Grep files within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pp",
-			action = M.find_queries,
-			desc = "Find krafna queries within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pq",
-			action = M.query_files,
-			desc = "Query files within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pa",
-			action = M.create_file,
-			desc = "Create a buffer within Perec vault",
-		},
-	},
-}
 
 -- Check for required CLI tool
 function M.check_cli_tool()
@@ -593,12 +554,71 @@ local function find_krafna_blocks()
 	return blocks
 end
 
-local function separate_first_column(result)
-	local lines = {}
-	for _, line in ipairs(vim.split(result, "[\r\n]+", { trimempty = true })) do
-		local split_line = vim.split(line, "\t", { trimempty = false })
-		table.insert(lines, { metadata = { file_path = split_line[1] }, data = vim.list_slice(split_line, 2) })
+local function num_to_string(num)
+	local s = ""
+	while num > 0 do
+		num = num - 1
+		local remainder = num % 26
+		s = string.char(97 + remainder) .. s -- 'a' is ASCII 97
+		num = math.floor(num / 26)
 	end
+	return s
+end
+
+local function set_keymap(mode, key, action, desc, group)
+	desc = desc or ""
+	group = group or false
+
+	-- Use which-key if available
+	if has_whichkey then
+		if group then
+			whichkey.add({ { key, action, group = desc, mode = mode, hidden = false } })
+		end
+		whichkey.add({ { key, action, desc = desc, mode = mode, hidden = false } })
+	else
+		-- Fallback to standard vim.keymap
+		vim.keymap.set(mode, key, action, {
+			desc = desc,
+			noremap = false,
+			silent = false,
+		})
+	end
+end
+
+local function set_quick_access(krafna_data)
+	local line_nums = {}
+	for k in pairs(krafna_data) do
+		table.insert(line_nums, k)
+	end
+	table.sort(line_nums)
+
+	set_keymap("n", "<leader>pd", M.render_quick_access, "Go to file from query preview", true)
+
+	local i = 1
+	for _, line_num in ipairs(line_nums) do
+		local krafna_code_block_data = krafna_data[line_num]
+		for _, data in ipairs(krafna_code_block_data) do
+			if data.metadata ~= nil then
+				data.metadata.keys = num_to_string(i)
+				set_keymap("n", "<leader>pd" .. data.metadata.keys, function()
+					vim.cmd("e " .. data.metadata.file_path)
+				end, "Go to file: " .. data.metadata.file_path)
+				i = i + 1
+			end
+		end
+	end
+end
+
+local function organise_krafna_result(result)
+	local result_lines = vim.split(result, "[\r\n]+", { trimempty = true })
+
+	local lines = {}
+	for i, line in ipairs(result_lines) do
+		local split_line = vim.split(line, "\t", { trimempty = false })
+		local metadata = i ~= 1 and { file_path = split_line[1] } or nil
+		table.insert(lines, { metadata = metadata, data = vim.list_slice(split_line, 2) })
+	end
+
 	return lines
 end
 
@@ -608,7 +628,9 @@ local function get_krafna(line, krafna_query, from_cache)
 
 	if not from_cache then
 		local result = M.execute_krafna(krafna_query, { include_fields = "file.path" })
-		krafna_cache[line] = separate_first_column(result)
+		krafna_cache[line] = organise_krafna_result(result)
+
+		set_quick_access(krafna_cache)
 	end
 
 	return krafna_cache[line]
@@ -638,6 +660,57 @@ function M.update_virtual_text(opts)
 	end
 end
 
+local function add_keys_to_krafna_data()
+	for _, krafna_code_block_data in pairs(krafna_cache) do
+		for _, data in ipairs(krafna_code_block_data) do
+			if data.metadata == nil then
+				table.insert(data.data, 1, "")
+			else
+				table.insert(data.data, 1, data.metadata.keys)
+			end
+		end
+	end
+end
+
+local function remove_first_row_from_krafna_data()
+	for _, krafna_code_block_data in pairs(krafna_cache) do
+		for _, data in ipairs(krafna_code_block_data) do
+			table.remove(data.data, 1)
+		end
+	end
+end
+
+function M.render_quick_access(opts)
+	opts = opts or {}
+
+	add_keys_to_krafna_data()
+
+	M.update_virtual_text({ from_cache = true })
+end
+
+local function cleanup_buffer_maps_and_cache()
+	if has_whichkey then
+		whichkey.add({ { "<leader>pd", nil, group = "", mode = "n", hidden = true } })
+		for _, krafna_code_block_data in pairs(krafna_cache) do
+			for _, data in ipairs(krafna_code_block_data) do
+				if data.metadata ~= nil then
+					whichkey.add({ { "<leader>pd" .. data.metadata.keys, nil, desc = "", mode = "n", hidden = true } })
+				end
+			end
+		end
+	else
+		local leader = vim.api.nvim_replace_termcodes("<Leader>", true, false, true)
+		local to_remove = leader .. "pd"
+		for _, keymap in ipairs(vim.api.nvim_get_keymap("n")) do
+			if keymap.lhs and string.sub(keymap.lhs, 1, #to_remove) == to_remove then
+				vim.api.nvim_del_keymap("n", keymap.lhs)
+			end
+		end
+	end
+
+	krafna_cache = {}
+end
+
 local last_called = {}
 local render_delay = 500
 local function setup_rendering()
@@ -657,6 +730,8 @@ local function setup_rendering()
 
 				-- Only proceed if enough time has passed since last call
 				if (current_time - last_time) >= render_delay then
+					-- reset krafna cache
+					cleanup_buffer_maps_and_cache()
 					-- Only trigger if the buffer is a real file or new file
 					local bufnr = vim.api.nvim_get_current_buf()
 					local buftype = vim.bo[bufnr].buftype
@@ -671,6 +746,46 @@ local function setup_rendering()
 		}
 	)
 end
+
+-- Default configuration
+local config = {
+	group = {
+		key = "<leader>p",
+		desc = "Perec functions",
+	},
+	keymaps = {
+		{
+			mode = "n",
+			key = "<leader>pf",
+			action = M.find_files,
+			desc = "Find files within Perec vault",
+		},
+		{
+			mode = "n",
+			key = "<leader>pg",
+			action = M.grep_files,
+			desc = "Grep files within Perec vault",
+		},
+		{
+			mode = "n",
+			key = "<leader>pp",
+			action = M.find_queries,
+			desc = "Find krafna queries within Perec vault",
+		},
+		{
+			mode = "n",
+			key = "<leader>pq",
+			action = M.query_files,
+			desc = "Query files within Perec vault",
+		},
+		{
+			mode = "n",
+			key = "<leader>pa",
+			action = M.create_file,
+			desc = "Create a buffer within Perec vault",
+		},
+	},
+}
 
 -- Setup function
 function M.setup(opts)
@@ -687,7 +802,7 @@ function M.setup(opts)
 	config = vim.tbl_deep_extend("force", config, opts.keys)
 
 	-- Setup default keymaps
-	local has_whichkey, whichkey = pcall(require, "which-key")
+	has_whichkey, whichkey = pcall(require, "which-key")
 
 	-- Use which-key if available
 	if has_whichkey then
@@ -701,11 +816,12 @@ function M.setup(opts)
 
 		-- Use which-key if available
 		if has_whichkey then
-			whichkey.add({ { key, action, desc = desc, mode = mode } })
+			whichkey.add({ { key, action, desc = desc, mode = mode, hidden = false } })
 		else
 			-- Fallback to standard vim.keymap
 			vim.keymap.set(mode, key, action, {
 				desc = desc,
+				noremap = keymap.noremap or true,
 				silent = keymap.silent or true,
 			})
 		end
@@ -718,6 +834,6 @@ function M.setup(opts)
 end
 
 -- setup_rendering()
--- M.setup()
+M.setup()
 
 return M
