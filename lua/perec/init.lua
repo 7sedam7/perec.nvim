@@ -333,10 +333,9 @@ local defaults = {
 	alternate_highlighter = "KrafnaTableRowEven",
 }
 
-local function split_and_fold_line(line, opts)
+local function split_and_fold_line(columns, opts)
 	local max_length = opts and opts.max_length or defaults.max_length
 	local highlighter = opts and opts.highlighter or "Conceal"
-	local columns = vim.split(line, "\t")
 	table.insert(columns, highlighter)
 	local result = { columns } -- First row with original data
 	local has_long_columns = false
@@ -424,11 +423,10 @@ local function row_highlighter(row_idx)
 	end
 end
 
-local function format_krafna_result(tsv_data)
-	-- Split the input into lines
+local function format_krafna_result_as_table(result_data)
 	local lines = {}
-	for line in string.gmatch(tsv_data, "[^\n]+") do
-		table.insert(lines, line)
+	for _, line in ipairs(result_data) do
+		table.insert(lines, line.data)
 	end
 
 	-- Check if we have any data
@@ -449,7 +447,6 @@ local function format_krafna_result(tsv_data)
 			table.insert(highlighters, table.remove(row))
 			table.insert(data_rows, row)
 		end
-		-- table.insert(data_rows, vim.split(line, "\t"))
 	end
 
 	-- Find the maximum width needed for each column
@@ -596,18 +593,32 @@ local function find_krafna_blocks()
 	return blocks
 end
 
-function M.update_virtual_text()
-	-- local mode = vim.api.nvim_get_mode().mode
-	-- local cursor = vim.api.nvim_win_get_cursor(0)
-	-- local cursor_line = cursor[1]
+local function separate_first_column(result)
+	local lines = {}
+	for _, line in ipairs(vim.split(result, "[\r\n]+", { trimempty = true })) do
+		local split_line = vim.split(line, "\t", { trimempty = false })
+		table.insert(lines, { metadata = { file_path = split_line[1] }, data = vim.list_slice(split_line, 2) })
+	end
+	return lines
+end
 
+local krafna_cache = {}
+local function get_krafna(line, krafna_query, from_cache)
+	from_cache = from_cache or false
+
+	if not from_cache then
+		local result = M.execute_krafna(krafna_query, { include_fields = "file.path" })
+		krafna_cache[line] = separate_first_column(result)
+	end
+
+	return krafna_cache[line]
+end
+
+function M.update_virtual_text(opts)
+	opts = opts or {}
+	opts.from_cache = opts.from_cache or false
 	-- Clear existing virtual text
 	vim.api.nvim_buf_clear_namespace(0, ns_id, 0, -1)
-
-	-- Only show previews in normal mode
-	-- if mode ~= "n" then
-	-- 	return
-	-- end
 
 	local blocks = find_krafna_blocks()
 	for _, block in ipairs(blocks) do
@@ -615,9 +626,9 @@ function M.update_virtual_text()
 		local block_end = block.start + block.num_lines
 		-- if cursor_line < block.start or cursor_line > block_end then
 		if true then
-			local result = M.execute_krafna(block.content)
+			local result = get_krafna(block.start, block.content, opts.from_cache)
 			if result then
-				local formatted = format_krafna_result(result)
+				local formatted = format_krafna_result_as_table(result)
 				vim.api.nvim_buf_set_extmark(0, ns_id, block_end - 1, 0, {
 					virt_lines = formatted,
 					virt_lines_above = false,
