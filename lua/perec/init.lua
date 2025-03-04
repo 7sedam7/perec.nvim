@@ -706,7 +706,7 @@ function M.render_quick_access(opts)
 
 	local lookup_keys = ""
 	while true do
-		local key = lookup_keys == "" and vim.fn.getchar() or get_char_with_timeout(500)
+		local key = lookup_keys == "" and get_char_with_timeout(1000) or get_char_with_timeout(500)
 		if key == nil then
 			break
 		end
