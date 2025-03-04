@@ -555,11 +555,6 @@ local function find_krafna_blocks()
 end
 
 local function generate_keymap_keys(num)
-	if num == 1 then
-		return "a"
-	elseif num == 2 then
-		return "ab"
-	end
 	local s = ""
 	while num > 0 do
 		num = num - 1
