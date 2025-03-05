@@ -494,7 +494,7 @@ local function format_krafna_result_as_table(result_data, lookup_keys)
 				col_highlighter = highlighters[i]
 			end
 			local quick_keys = quick_access_keys[i]
-			if quick_keys ~= "" then
+			if col_idx == 1 and quick_keys ~= "" then
 				table.insert(data_line, { " ", folds_exist and highlighters[i] or "Conceal" })
 				table.insert(data_line, { quick_keys, "HopNextKey" })
 				table.insert(data_line, { string.sub(col_val, #quick_keys + 1), col_highlighter })
