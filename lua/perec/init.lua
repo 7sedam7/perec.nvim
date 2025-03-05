@@ -392,8 +392,7 @@ local function simplify_links_for_display(input)
 	end)
 end
 
-local function format_krafna_result_as_table(result_data, quick_access)
-	quick_access = quick_access or false
+local function format_krafna_result_as_table(result_data, lookup_keys)
 	local lines = {}
 	for _, line in ipairs(result_data) do
 		table.insert(lines, line.data)
@@ -414,7 +413,11 @@ local function format_krafna_result_as_table(result_data, quick_access)
 		if folded_rows and #folded_rows > 1 then
 			folds_exist = true
 		end
-		local quick_keys = result_data[i].metadata and result_data[i].metadata.keys or ""
+		local quick_keys = lookup_keys
+				and result_data[i].metadata
+				and string.sub(result_data[i].metadata.keys, 1, #lookup_keys) == lookup_keys
+				and result_data[i].metadata.keys
+			or ""
 		for _, row in ipairs(folded_rows) do
 			table.insert(highlighters, table.remove(row))
 
@@ -490,8 +493,8 @@ local function format_krafna_result_as_table(result_data, quick_access)
 			if folds_exist then
 				col_highlighter = highlighters[i]
 			end
-			if quick_access and col_idx == 1 then
-				local quick_keys = quick_access_keys[i]
+			local quick_keys = quick_access_keys[i]
+			if quick_keys ~= "" then
 				table.insert(data_line, { " ", folds_exist and highlighters[i] or "Conceal" })
 				table.insert(data_line, { quick_keys, "HopNextKey" })
 				table.insert(data_line, { string.sub(col_val, #quick_keys + 1), col_highlighter })
@@ -670,7 +673,7 @@ end
 function M.update_virtual_text(opts)
 	opts = opts or {}
 	opts.from_cache = opts.from_cache or false
-	opts.quick_access = opts.quick_access or false
+	opts.lookup_keys = opts.lookup_keys or nil
 	-- Clear existing virtual text
 	vim.api.nvim_buf_clear_namespace(0, ns_id, 0, -1)
 
@@ -682,7 +685,7 @@ function M.update_virtual_text(opts)
 		if true then
 			local result = get_krafna(block.start, block.content, opts.from_cache)
 			if result then
-				local formatted = format_krafna_result_as_table(result, opts.quick_access)
+				local formatted = format_krafna_result_as_table(result, opts.lookup_keys)
 				vim.api.nvim_buf_set_extmark(0, ns_id, block_end - 1, 0, {
 					virt_lines = formatted,
 					virt_lines_above = false,
@@ -709,13 +712,12 @@ end
 function M.render_quick_access(opts)
 	opts = opts or {}
 
-	M.update_virtual_text({ from_cache = true, quick_access = true })
-
-	vim.cmd("redraw")
-
 	local lookup_keys = ""
 	while true do
-		local key = lookup_keys == "" and get_char_with_timeout(1000) or get_char_with_timeout(500)
+		M.update_virtual_text({ from_cache = true, lookup_keys = lookup_keys })
+		vim.cmd("redraw")
+
+		local key = get_char_with_timeout(1000)
 		if key == nil then
 			break
 		end
@@ -731,7 +733,7 @@ function M.render_quick_access(opts)
 		end
 	end
 
-	M.update_virtual_text({ from_cache = true, quick_access = false })
+	M.update_virtual_text({ from_cache = true })
 
 	if krafna_quick_access[lookup_keys] then
 		vim.cmd("e " .. krafna_quick_access[lookup_keys])
