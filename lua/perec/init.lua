@@ -441,11 +441,15 @@ local function format_krafna_result_as_table(result_data)
 	-- Format the table
 	local result = {}
 
+	local has_quick_access = data_rows[1][1] == ""
+
 	-- Top row
-	local top_line = top_left_pipe
+	local top_line = has_quick_access and "" or top_left_pipe
 	for i, width in ipairs(col_widths) do
 		if i == #col_widths then
 			top_line = top_line .. string.rep(horizontal_pipe, width + 2) .. top_right_pipe
+		elseif i == 1 and has_quick_access then
+			top_line = top_line .. string.rep(" ", width + 2) .. top_left_pipe
 		else
 			top_line = top_line .. string.rep(horizontal_pipe, width + 2) .. top_center_pipe
 		end
@@ -453,7 +457,7 @@ local function format_krafna_result_as_table(result_data)
 	table.insert(result, { { top_line, "RenderMarkdownTableHead" } })
 
 	-- Header row (first line of TSV)
-	local header_line = vertical_pipe
+	local header_line = has_quick_access and "" or vertical_pipe
 	for col_idx, col_val in ipairs(data_rows[1]) do
 		header_line = header_line
 			.. " "
@@ -464,10 +468,12 @@ local function format_krafna_result_as_table(result_data)
 	table.insert(result, { { header_line, "RenderMarkdownTableHead" } })
 
 	-- Separator row
-	local separator_line = middle_left_pipe
+	local separator_line = has_quick_access and "" or middle_left_pipe
 	for i, width in ipairs(col_widths) do
 		if i == #col_widths then
 			separator_line = separator_line .. string.rep(horizontal_pipe, width + 2) .. middle_right_pipe
+		elseif i == 1 and has_quick_access then
+			separator_line = separator_line .. string.rep(" ", width + 2) .. middle_left_pipe
 		else
 			separator_line = separator_line .. string.rep(horizontal_pipe, width + 2) .. middle_center_pipe
 		end
@@ -477,12 +483,30 @@ local function format_krafna_result_as_table(result_data)
 	-- Data rows (skip first row which is the header)
 	for i = 2, #data_rows do
 		local row = data_rows[i]
-		local data_line = { { vertical_pipe, "Conceal" } }
+		local data_line = has_quick_access and { { "" } } or { { vertical_pipe, "Conceal" } }
 		-- local data_line = vertical_pipe
 		for col_idx, col_val in ipairs(row) do
 			if col_val == "NULL" then
 				table.insert(data_line, { " ", folds_exist and highlighters[i] or "Conceal" })
 				table.insert(data_line, { col_val, "KrafnaTableNull" })
+				table.insert(data_line, {
+					string.rep(" ", col_widths[col_idx] - #col_val + 1),
+					folds_exist and highlighters[i] or "Conceal",
+				})
+				table.insert(data_line, { vertical_pipe, "Conceal" })
+			elseif has_quick_access and col_idx == 1 then
+				table.insert(data_line, { " ", folds_exist and highlighters[i] or "Conceal" })
+				-- table.insert(data_line, { col_val, "HopNextKey" })
+				table.insert(data_line, { " ", "HopNextKey" })
+				table.insert(data_line, {
+					string.rep(" ", col_widths[col_idx] - #col_val + 1),
+					folds_exist and highlighters[i] or "Conceal",
+				})
+				table.insert(data_line, { vertical_pipe, "Conceal" })
+			elseif has_quick_access and col_idx == 2 then
+				table.insert(data_line, { " ", folds_exist and highlighters[i] or "Conceal" })
+				table.insert(data_line, { row[1], "HopNextKey" })
+				table.insert(data_line, { string.sub(col_val, #row[1] + 1), "Conceal" })
 				table.insert(data_line, {
 					string.rep(" ", col_widths[col_idx] - #col_val + 1),
 					folds_exist and highlighters[i] or "Conceal",
@@ -500,10 +524,12 @@ local function format_krafna_result_as_table(result_data)
 	end
 
 	-- Bottom row
-	local bottom_line = bottom_left_pipe
+	local bottom_line = has_quick_access and "" or bottom_left_pipe
 	for i, width in ipairs(col_widths) do
 		if i == #col_widths then
 			bottom_line = bottom_line .. string.rep(horizontal_pipe, width + 2) .. bottom_right_pipe
+		elseif i == 1 and has_quick_access then
+			bottom_line = bottom_line .. string.rep(" ", width + 2) .. bottom_left_pipe
 		else
 			bottom_line = bottom_line .. string.rep(horizontal_pipe, width + 2) .. bottom_center_pipe
 		end
@@ -758,6 +784,7 @@ local function setup_rendering()
 	local group = vim.api.nvim_create_augroup("KrafnaPreview", { clear = true })
 	vim.api.nvim_set_hl(0, "KrafnaTableNull", { fg = "#FF0000" })
 	vim.api.nvim_set_hl(0, "KrafnaTableRowEven", { reverse = true })
+	vim.api.nvim_set_hl(0, "HopNextKey", { fg = "#FFD700", bold = true })
 	-- vim.api.nvim_set_hl(0, "KrafnaTableRowEven", { fg = "#FFFFFF", bg = "#000010" })
 	vim.api.nvim_create_autocmd(
 		{ "BufEnter", "BufWinEnter", "WinEnter", "TabEnter", "BufNewFile", "BufWritePost", "BufReadPost", "FileType" },
@@ -881,6 +908,6 @@ function M.setup(opts)
 end
 
 -- setup_rendering()
--- M.setup()
+M.setup()
 
 return M
