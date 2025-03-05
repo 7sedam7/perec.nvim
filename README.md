@@ -105,7 +105,7 @@ require('perec').setup({
 - `<leader>pd`: [render_quick_access] Renders quick access letters over the rows of the rendered table. Pressing them will open a file associated with that row in a new buffer.
 - Customize by passing custom keymaps in `.setup()`
 
-![Quick Access Demo](quick_access_demo.mp4)
+![Quick Access Demo](quick_access_demo.gif)
 
 There is a live preview of the query as extmap bellow the query, that get's updated on save and buffer open/enter/...
 
