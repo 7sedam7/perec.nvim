@@ -295,6 +295,8 @@ local defaults = {
 }
 
 local function split_and_fold_line(columns, opts)
+	columns = vim.deepcopy(columns, true)
+
 	local max_length = opts and opts.max_length or defaults.max_length
 	local highlighter = opts and opts.highlighter or "Conceal"
 	table.insert(columns, highlighter)
@@ -382,6 +384,12 @@ local function row_highlighter(row_idx)
 	else
 		return "Conceal"
 	end
+end
+
+local function simplify_links_for_display(input)
+	return input:gsub("%[([^%]]+)%]%(([^%)]+)%)", function(text, _)
+		return "[" .. text .. "]"
+	end)
 end
 
 local function format_krafna_result_as_table(result_data)
@@ -614,7 +622,7 @@ local function organise_krafna_result(result)
 
 	local lines = {}
 	for i, line in ipairs(result_lines) do
-		local split_line = vim.split(line, "\t", { trimempty = false })
+		local split_line = vim.split(simplify_links_for_display(line), "\t", { trimempty = false })
 		local metadata = i ~= 1 and { file_path = split_line[1] } or nil
 		table.insert(lines, { metadata = metadata, data = vim.list_slice(split_line, 2) })
 	end
@@ -657,6 +665,7 @@ function M.update_virtual_text(opts)
 				vim.api.nvim_buf_set_extmark(0, ns_id, block_end - 1, 0, {
 					virt_lines = formatted,
 					virt_lines_above = false,
+					ui_watched = true,
 				})
 			end
 		end
@@ -683,7 +692,7 @@ local function remove_first_row_from_krafna_data()
 	end
 end
 
-function get_char_with_timeout(timeout_ms)
+local function get_char_with_timeout(timeout_ms)
 	local char = nil
 	vim.fn.wait(timeout_ms, function()
 		local _char = vim.fn.getchar(0)
