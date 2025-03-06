@@ -1,5 +1,3 @@
-local telescope_builtin = require("telescope.builtin")
-
 local pickers = require("telescope.pickers")
 local finders = require("telescope.finders")
 local previewers = require("telescope.previewers")
@@ -8,33 +6,31 @@ local make_entry = require("telescope.make_entry")
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 
-local log = require("plenary.log"):new()
-log.level = "debug"
+-- local log = require("plenary.log"):new()
+-- log.level = "debug"
 
 local PEREC_DIR = vim.fn.expand(vim.fn.expand("$PEREC_DIR"))
 local has_whichkey, whichkey = false, nil
+
+local perec_pickers = require("perec.pickers")
 
 local M = {}
 
 M.find_files = function(opts)
 	opts = opts or {}
 	opts.cwd = opts.cwd or PEREC_DIR
+	opts.engine = opts.engine or "Telescope"
 
-	telescope_builtin.find_files(opts)
+	perec_pickers.find_files(opts)
 end
 
 M.grep_files = function(opts)
 	opts = opts or {}
 	opts.cwd = opts.cwd or PEREC_DIR
+	opts.engine = opts.engine or "Telescope"
 
-	telescope_builtin.live_grep(opts)
+	perec_pickers.grep_files(opts)
 end
-
--- M.search_notes = function (opts)
---   opts = opts or {}
---   opts.cwd = PEREC_DIR
---
--- end
 
 M.find_queries = function(opts)
 	opts = opts or {}
