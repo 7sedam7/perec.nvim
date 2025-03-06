@@ -247,6 +247,7 @@ M.create_file = function(opts)
 			"---",
 			"tags:",
 			"---",
+			"",
 			"# " .. vim.fn.fnamemodify(filepath, ":t:r"), -- Add filename as title
 			"",
 			"",
