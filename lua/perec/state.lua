@@ -2,6 +2,7 @@
 local State = {
 	---@type CodeBlock[]
 	code_blocks = {},
+	---@type table<number, QueryResult>
 	query_results = {},
 }
 

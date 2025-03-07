@@ -34,7 +34,7 @@ local function from_tsv_str(result, metadata_fields)
 		return QueryResult:new({}, {})
 	end
 
-	local header = vim.split(result_lines[1], "\t", { trimempty = false })
+	local header = vim.list_slice(vim.split(result_lines[1], "\t", { trimempty = false }), #metadata_fields + 1)
 	local rows = {}
 	for i = 2, #result_lines do
 		local line = result_lines[i]
@@ -46,7 +46,6 @@ local function from_tsv_str(result, metadata_fields)
 		end
 
 		table.insert(rows, QueryResultRow:new(vim.list_slice(split_line, #metadata_fields + 1), metadata))
-		-- table.insert(rows, { metadata = metadata, data = vim.list_slice(split_line, #metadata_fields + 1) })
 	end
 
 	return QueryResult:new(header, rows)

@@ -113,7 +113,7 @@ end
 --- @param query_result QueryResult
 --- @param lookup_keys string|nil
 --- @return table
-M.krafna_result_as_table = function(query_result, lookup_keys)
+local function as_table(query_result, lookup_keys)
 	if query_result == nil then
 		return nil
 	end
@@ -152,13 +152,12 @@ M.krafna_result_as_table = function(query_result, lookup_keys)
 	local col_widths = {}
 
 	-- Initialize widths from the first row (headers)
-	for col_idx, col_val in ipairs(data_rows[1]) do
+	for col_idx, col_val in pairs(query_result.header) do
 		col_widths[col_idx] = #col_val
 	end
 
 	-- Update widths based on data rows
-	for i = 2, #data_rows do
-		local row = data_rows[i]
+	for _, row in pairs(data_rows) do
 		for col_idx, col_val in ipairs(row) do
 			if col_idx <= #col_widths then
 				col_widths[col_idx] = math.max(col_widths[col_idx], #col_val)
@@ -184,7 +183,7 @@ M.krafna_result_as_table = function(query_result, lookup_keys)
 
 	-- Header row (first line of TSV)
 	local header_line = vertical_pipe
-	for col_idx, col_val in ipairs(data_rows[1]) do
+	for col_idx, col_val in pairs(query_result.header) do
 		header_line = header_line
 			.. " "
 			.. col_val
@@ -205,8 +204,7 @@ M.krafna_result_as_table = function(query_result, lookup_keys)
 	table.insert(result, { { separator_line, "RenderMarkdownTableHead" } })
 
 	-- Data rows (skip first row which is the header)
-	for i = 2, #data_rows do
-		local row = data_rows[i]
+	for i, row in pairs(data_rows) do
 		local data_line = { { vertical_pipe, "Conceal" } }
 		for col_idx, col_val in ipairs(row) do
 			local col_highlighter = col_val == "NULL" and "KrafnaTableNull" or "Conceal"
@@ -254,6 +252,15 @@ M.krafna_result_as_table = function(query_result, lookup_keys)
 	table.insert(result, { { bottom_line, "Conceal" } })
 
 	return result
+end
+
+--- Convert a QueryResult to a extmark formatted table
+--- @param query_result QueryResult
+--- @param lookup_keys string|nil
+--- @return table
+M.format = function(query_result, lookup_keys)
+	-- TODO: if it has only 2 columns (checked, text) then as_todo
+	return as_table(query_result, lookup_keys)
 end
 
 return M
