@@ -6,6 +6,7 @@ local has_whichkey, whichkey = pcall(require, "which-key")
 
 local finders = require("perec.finders")
 local renderer = require("perec.renderer")
+local CodeBlock = require("perec.objects.code_block")
 
 local M = {}
 
@@ -30,51 +31,10 @@ M.find_queries = function(opts)
 	finders.find_queries(opts)
 end
 
-local function extract_code_under_cursor()
-	-- Get cursor position
-	local bufnr = vim.api.nvim_get_current_buf()
-	local current_window = vim.api.nvim_get_current_win()
-	local cursor_row = vim.api.nvim_win_get_cursor(current_window)[1]
-
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-
-	-- Find the code block boundaries
-	local start_line = nil
-	local end_line = nil
-
-	-- Scan up for start of block
-	for i = cursor_row, 1, -1 do
-		if lines[i]:gsub("%s+", "") == "```krafna" then
-			start_line = i
-			break
-		end
-	end
-
-	-- Scan down for end of block
-	if start_line then
-		for i = cursor_row, #lines do
-			if lines[i]:gsub("%s+", "") == "```" then
-				end_line = i
-				break
-			end
-		end
-	end
-
-	-- If we found a complete block
-	if start_line and end_line then
-		local code = table.concat(vim.list_slice(lines, start_line + 1, end_line - 1), "\n")
-
-		code = code:gsub("\n", " "):gsub("\r\n", " ")
-
-		return code
-	end
-
-	return nil
-end
-
 M.query_files = function(opts)
+	local code_under_cursor = CodeBlock.get_under_cursor()
 	opts = opts or {
-		default_text = extract_code_under_cursor() or "WHERE ",
+		default_text = code_under_cursor and code_under_cursor.content or "WHERE ",
 	}
 	opts.cwd = opts.cwd or PEREC_DIR
 
@@ -119,6 +79,45 @@ M.create_file = function(opts)
 		vim.cmd("startinsert")
 	end
 end
+
+local config = {
+	group = {
+		key = "<leader>p",
+		desc = "Perec functions",
+	},
+	keymaps = {
+		{
+			key = "<leader>pf",
+			action = M.find_files,
+			mode = "n",
+			desc = "Find files within Perec vault",
+		},
+		{
+			key = "<leader>pg",
+			action = M.grep_files,
+			mode = "n",
+			desc = "Grep files within Perec vault",
+		},
+		{
+			key = "<leader>pp",
+			action = M.find_queries,
+			mode = "n",
+			desc = "Find krafna queries within Perec vault",
+		},
+		{
+			key = "<leader>pq",
+			action = M.query_files,
+			mode = "n",
+			desc = "Query files within Perec vault",
+		},
+		{
+			key = "<leader>pa",
+			action = M.create_file,
+			mode = "n",
+			desc = "Create a buffer within Perec vault",
+		},
+	},
+}
 
 --------------------------------------------------------------------------------
 ------ Krafna Preview (should extractc this to a separate file) ----------------
@@ -188,6 +187,7 @@ local last_called = {}
 local render_delay = 500
 local function setup_rendering(opts)
 	local group = vim.api.nvim_create_augroup("KrafnaPreview", { clear = true })
+
 	vim.api.nvim_set_hl(0, "KrafnaTableNull", { fg = "#FF0000" })
 	-- vim.api.nvim_set_hl(0, "KrafnaTableRowEven", { reverse = true })
 	vim.api.nvim_set_hl(0, "KrafnaTableRowEven", create_similar_highlighter("Conceal"))
@@ -220,76 +220,13 @@ local function setup_rendering(opts)
 	vim.api.nvim_create_autocmd({ "BufLeave" }, {
 		group = group,
 		pattern = { "*.md" },
-		callback = function(event)
-			-- reset krafna cache
+		callback = function(_)
 			cleanup_buffer_maps_and_cache()
 		end,
 	})
 end
 
--- Default configuration
-local config = {
-	group = {
-		key = "<leader>p",
-		desc = "Perec functions",
-	},
-	keymaps = {
-		{
-			mode = "n",
-			key = "<leader>pf",
-			action = M.find_files,
-			desc = "Find files within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pg",
-			action = M.grep_files,
-			desc = "Grep files within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pp",
-			action = M.find_queries,
-			desc = "Find krafna queries within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pq",
-			action = M.query_files,
-			desc = "Query files within Perec vault",
-		},
-		{
-			mode = "n",
-			key = "<leader>pa",
-			action = M.create_file,
-			desc = "Create a buffer within Perec vault",
-		},
-	},
-}
-
--- Check for required CLI tool
-local function check_cli_tool()
-	local result = vim.fn.system("command -v krafna")
-
-	if result == "" then
-		error("CLI tool 'krafna' is not installed. Please install it before using this plugin.")
-	end
-end
-
--- Setup function
-function M.setup(opts)
-	-- Default options
-	opts = opts or { keys = {} }
-
-	opts.cwd = opts.cwd or PEREC_DIR
-
-	-- Check CLI tool first
-	check_cli_tool()
-
-	-- Merge user options with defaults
-	config = vim.tbl_deep_extend("force", config, opts.keys)
-
-	-- Setup default keymaps
+local function setup_keymaps(config)
 	-- Use which-key if available
 	if has_whichkey then
 		whichkey.add({ { config.group.key, group = config.group.desc } })
@@ -312,13 +249,31 @@ function M.setup(opts)
 			})
 		end
 	end
-
-	-- Setup rendering
-	setup_rendering(opts)
-
-	return config
 end
 
--- M.setup()
+-- Check for required CLI tool
+local function check_cli_tool()
+	local result = vim.fn.system("command -v krafna")
+
+	if result == "" then
+		error("CLI tool 'krafna' is not installed. Please install it before using this plugin.")
+	end
+end
+
+-- Setup function
+function M.setup(opts)
+	opts = opts or { keys = {} }
+	opts.cwd = opts.cwd or PEREC_DIR
+
+	check_cli_tool()
+
+	-- Merge user options with defaults
+	config = vim.tbl_deep_extend("force", config, opts.keys)
+
+	setup_keymaps(config)
+	setup_rendering(opts)
+end
+
+M.setup()
 
 return M

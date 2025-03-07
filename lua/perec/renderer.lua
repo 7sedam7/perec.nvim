@@ -2,9 +2,10 @@ local has_whichkey, whichkey = pcall(require, "which-key")
 
 local krafna = require("perec.krafna")
 local formatters = require("perec.formatters")
+local CodeBlock = require("perec.objects.code_block")
 
--- local log = require("plenary.log"):new()
--- log.level = "debug"
+local log = require("plenary.log"):new()
+log.level = "debug"
 
 local M = {}
 
@@ -27,37 +28,6 @@ local function redraw(krafna_blocks, lookup_keys)
 	for _, line_num in ipairs(line_nums) do
 		M.render_krafna_result(krafna_blocks[line_num], 0, line_num - 1, lookup_keys)
 	end
-end
-
-local function extract_krafna(lines, start_line, end_line)
-	local code_block = {}
-	local i = start_line
-	while i <= end_line do
-		local line = lines[i]
-		if line:match("^```%s*$") then
-			break
-		end
-		table.insert(code_block, line)
-		i = i + 1
-	end
-	return table.concat(code_block, "\n"), i - start_line + 1
-end
-
-local function find_krafna_blocks()
-	local blocks = {}
-	local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-
-	for i, line in ipairs(lines) do
-		if line:match("^```%s*krafna.*$") then
-			local content, num_lines = extract_krafna(lines, i + 1, #lines)
-			table.insert(blocks, {
-				start = i,
-				content = content,
-				num_lines = num_lines,
-			})
-		end
-	end
-	return blocks
 end
 
 local function generate_keymap_keys(num)
@@ -180,10 +150,10 @@ M.update_virtual_text = function(opts)
 	opts = opts or {}
 	opts.from_cache = opts.from_cache or false
 
-	local blocks = find_krafna_blocks()
+	local blocks = CodeBlock.find_within_buffer("krafna")
 
 	for _, block in ipairs(blocks) do
-		local block_end = block.start + block.num_lines
+		local block_end = block.start_line + block.num_lines
 
 		if not opts.from_cache then
 			krafna_cache[block_end] =
