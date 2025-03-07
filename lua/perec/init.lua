@@ -319,6 +319,6 @@ function M.setup(opts)
 	return config
 end
 
-M.setup()
+-- M.setup()
 
 return M

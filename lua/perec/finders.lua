@@ -8,6 +8,7 @@ local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 
 local krafna = require("perec.krafna")
+local renderer = require("perec.renderer")
 
 local M = {}
 
@@ -56,75 +57,11 @@ M.find_queries = function(opts)
 			end,
 			previewer = previewers.new_buffer_previewer({
 				title = "Query Preview",
-				define_preview = function(self, entry, _status)
+				define_preview = function(self, entry, _)
 					local bufnr = self.state.bufnr
-					local result = krafna.execute(entry.value, { cwd = opts.cwd, include_fields = "file.name" })
+					local result = krafna.execute(entry.value, { cwd = opts.cwd })
 
-					if vim.trim(result) == "" then
-						vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "No files matching the query." })
-						return
-					end
-
-					-- Try to parse as TSV first
-					local has_tabs = result:find("\t")
-					local lines = {}
-
-					if has_tabs then
-						local max_lengths = {}
-						-- First pass to determine number of columns
-						local num_columns = 0
-						for line in result:gmatch("[^\r\n]+") do
-							local count = select(2, line:gsub("\t", "")) + 1
-							num_columns = math.max(num_columns, count)
-						end
-
-						-- Parse rows with proper empty cell handling
-						for line in result:gmatch("[^\r\n]+") do
-							local row = {}
-							local prev_pos = 1
-							for i = 1, num_columns do
-								local pos = line:find("\t", prev_pos) or (#line + 1)
-								local field = line:sub(prev_pos, pos - 1)
-								table.insert(row, field)
-								prev_pos = pos + 1
-							end
-							-- Track max column widths
-							for i, field in ipairs(row) do
-								if #field > 90 then
-									field = field:sub(1, 90) .. "..."
-								end
-								max_lengths[i] = math.max(max_lengths[i] or 0, #field)
-							end
-							table.insert(lines, row)
-						end
-
-						-- Format as aligned table with header separator
-						local formatted_lines = {}
-						for idx, row in ipairs(lines) do
-							local formatted_row = {}
-							for i, field in ipairs(row) do
-								table.insert(formatted_row, string.format("%-" .. (max_lengths[i] or 0) .. "s", field))
-							end
-							local line = table.concat(formatted_row, " | ")
-							table.insert(formatted_lines, line)
-							-- Add separator after header (first line)
-							if idx == 1 then
-								local sep = {}
-								for i = 1, #row do
-									table.insert(sep, string.rep("-", max_lengths[i]))
-								end
-								table.insert(formatted_lines, table.concat(sep, "-+-"))
-							end
-						end
-						vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, formatted_lines)
-					else
-						-- Fall back to plain text display
-						local plain_lines = {}
-						for line in result:gmatch("[^\r\n]+") do
-							table.insert(plain_lines, line)
-						end
-						vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, plain_lines)
-					end
+					renderer.render_krafna_result(result, bufnr, 0, nil)
 				end,
 			}),
 		})
@@ -141,22 +78,17 @@ M.query_files = function(opts)
 					if #prompt < 7 then -- "WHERE a" is a minimal query of size 7
 						return {}
 					end
-					local results = krafna.execute(prompt, { cwd = opts.cwd, include_fields = "file.path" })
+					local results = krafna.execute(prompt, { cwd = opts.cwd, metadata_fields = { "file.path" } })
 
-					-- Parse TSV results
 					local files = {}
-					for line in results:gmatch("[^\r\n]+") do
-						local path = line:match("^[^\t]+")
-						if path then
-							table.insert(files, path)
-						end
+					for _, result in pairs(results) do
+						table.insert(files, result.metadata["file.path"])
 					end
-					if files and files[1] and files[1] == "file_path" then
+					if #files > 1 and not string.find(files[1], "error") then
 						table.remove(files, 1)
-						return files
 					end
-					-- return scan.scan_dir(opts.cwd)
-					return {}
+
+					return files
 				end,
 				entry_maker = function(entry)
 					local file_entry = file_entry_maker(entry)
