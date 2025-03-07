@@ -78,11 +78,11 @@ M.query_files = function(opts)
 					if #prompt < 7 then -- "WHERE a" is a minimal query of size 7
 						return {}
 					end
-					local results = krafna.execute(prompt, { cwd = opts.cwd, metadata_fields = { "file.path" } })
+					local result = krafna.execute(prompt, { cwd = opts.cwd, metadata_fields = { "file.path" } })
 
 					local files = {}
-					for _, result in pairs(results) do
-						table.insert(files, result.metadata["file.path"])
+					for _, row in pairs(result.rows) do
+						table.insert(files, row.metadata["file.path"])
 					end
 					if #files > 1 and not string.find(files[1], "error") then
 						table.remove(files, 1)

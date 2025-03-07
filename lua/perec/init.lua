@@ -6,6 +6,7 @@ local has_whichkey, whichkey = pcall(require, "which-key")
 
 local finders = require("perec.finders")
 local renderer = require("perec.renderer")
+local highlighters = require("perec.highlighters")
 local CodeBlock = require("perec.objects.code_block")
 
 local M = {}
@@ -44,6 +45,7 @@ end
 M.create_file = function(opts)
 	opts = opts or {}
 	opts.cwd = opts.cwd or PEREC_DIR
+
 	-- Create a new document in the PEREC_DIR
 	local filename = vim.fn.input("Enter document name: ")
 	if not filename:match("%.md$") then
@@ -120,78 +122,14 @@ local config = {
 }
 
 --------------------------------------------------------------------------------
------- Krafna Preview (should extractc this to a separate file) ----------------
+-------------------------------- Setup -----------------------------------------
 --------------------------------------------------------------------------------
-
-local function cleanup_buffer_maps_and_cache()
-	if has_whichkey then
-		whichkey.add({ { "<leader>pd", nil, desc = "", mode = "n", hidden = true } })
-	end
-	pcall(vim.keymap.del, "n", "<leader>pd")
-
-	renderer.cleanup_state()
-end
-
-local function generate_subtle_highlights(original_fg, original_bg)
-	-- Convert integer to RGB
-	local function int_to_rgb(int_color)
-		if not int_color or int_color == -1 then
-			return nil
-		end
-		return {
-			r = bit.band(bit.rshift(int_color, 16), 0xFF),
-			g = bit.band(bit.rshift(int_color, 8), 0xFF),
-			b = bit.band(int_color, 0xFF),
-		}
-	end
-
-	-- Convert RGB to integer
-	local function rgb_to_int(rgb)
-		return bit.bor(bit.lshift(rgb.r, 16), bit.lshift(rgb.g, 8), rgb.b)
-	end
-
-	-- Subtle lightness adjustment
-	local function adjust_lightness(rgb, factor)
-		return {
-			r = math.min(255, math.max(0, math.floor(rgb.r * factor))),
-			g = math.min(255, math.max(0, math.floor(rgb.g * factor))),
-			b = math.min(255, math.max(0, math.floor(rgb.b * factor))),
-		}
-	end
-
-	local orig_bg_rgb = int_to_rgb(original_bg)
-	if not orig_bg_rgb then
-		return nil
-	end
-
-	-- Create two very subtle variations
-	local subtle_lighter = adjust_lightness(orig_bg_rgb, 1.3)
-	local subtle_darker = adjust_lightness(orig_bg_rgb, -1.3)
-
-	return {
-		fg = original_fg,
-		bg = vim.o.background == "light" and rgb_to_int(subtle_darker) or rgb_to_int(subtle_lighter),
-	}
-end
-
-local function create_similar_highlighter(highlighter)
-	local hl = vim.api.nvim_get_hl(0, { name = highlighter })
-	if hl == nil or hl.fg == nil or hl.bg == nil then
-		hl = vim.api.nvim_get_hl(0, { name = "Normal" })
-	end
-
-	return generate_subtle_highlights(hl.fg, hl.bg)
-end
 
 local last_called = {}
 local render_delay = 500
-local function setup_rendering(opts)
+local function setup_autocmds(opts)
 	local group = vim.api.nvim_create_augroup("KrafnaPreview", { clear = true })
 
-	vim.api.nvim_set_hl(0, "KrafnaTableNull", { fg = "#FF0000" })
-	-- vim.api.nvim_set_hl(0, "KrafnaTableRowEven", { reverse = true })
-	vim.api.nvim_set_hl(0, "KrafnaTableRowEven", create_similar_highlighter("Conceal"))
-	vim.api.nvim_set_hl(0, "HopNextKey", { fg = "#FFD700", bold = true })
 	vim.api.nvim_create_autocmd(
 		{ "BufEnter", "BufWinEnter", "WinEnter", "TabEnter", "BufNewFile", "BufWritePost", "BufReadPost", "FileType" },
 		{
@@ -221,7 +159,12 @@ local function setup_rendering(opts)
 		group = group,
 		pattern = { "*.md" },
 		callback = function(_)
-			cleanup_buffer_maps_and_cache()
+			if has_whichkey then
+				whichkey.add({ { "<leader>pd", nil, desc = "", mode = "n", hidden = true } })
+			end
+			pcall(vim.keymap.del, "n", "<leader>pd")
+
+			renderer.cleanup_state()
 		end,
 	})
 end
@@ -270,8 +213,9 @@ function M.setup(opts)
 	-- Merge user options with defaults
 	config = vim.tbl_deep_extend("force", config, opts.keys)
 
+	highlighters.setup_highlighters()
 	setup_keymaps(config)
-	setup_rendering(opts)
+	setup_autocmds(opts)
 end
 
 M.setup()

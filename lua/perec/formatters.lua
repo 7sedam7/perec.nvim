@@ -109,18 +109,16 @@ local function row_highlighter(row_idx)
 	end
 end
 
-M.krafna_result_as_table = function(result_data, lookup_keys)
-	if result_data == nil or next(result_data) == nil then
+--- Convert a QueryResult to a extmark formatted table
+--- @param query_result QueryResult
+--- @param lookup_keys string|nil
+--- @return table
+M.krafna_result_as_table = function(query_result, lookup_keys)
+	if query_result == nil then
 		return nil
 	end
 
-	local lines = {}
-	for _, line in ipairs(result_data) do
-		table.insert(lines, line.data)
-	end
-
-	-- Check if we have any data
-	if #lines == 0 then
+	if query_result:is_empty() then
 		return { { { "| No data |", "Conceal" } } }
 	end
 
@@ -129,24 +127,24 @@ M.krafna_result_as_table = function(result_data, lookup_keys)
 	local highlighters = {}
 	local quick_access_keys = {}
 	local data_rows = {}
-	for i, line in ipairs(lines) do
-		local folded_rows = split_and_fold_line(line, { highlighter = row_highlighter(i) })
+	for i, row in ipairs(query_result.rows) do
+		local folded_rows = split_and_fold_line(row.data, { highlighter = row_highlighter(i) })
 		if folded_rows and #folded_rows > 1 then
 			folds_exist = true
 		end
 		local quick_keys = lookup_keys
-				and result_data[i].metadata
-				and not result_data[i].metadata.is_header
-				and string.sub(result_data[i].metadata.keys, 1, #lookup_keys) == lookup_keys
-				and result_data[i].metadata.keys
+				and row.metadata
+				and row.metadata.keys
+				and string.sub(row.metadata.keys, 1, #lookup_keys) == lookup_keys
+				and row.metadata.keys
 			or ""
-		for _, row in ipairs(folded_rows) do
-			table.insert(highlighters, table.remove(row))
+		for _, folded_row in ipairs(folded_rows) do
+			table.insert(highlighters, table.remove(folded_row))
 
 			table.insert(quick_access_keys, quick_keys)
 			quick_keys = ""
 
-			table.insert(data_rows, row)
+			table.insert(data_rows, folded_row)
 		end
 	end
 

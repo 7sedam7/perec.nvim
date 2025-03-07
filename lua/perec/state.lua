@@ -2,6 +2,7 @@
 local State = {
 	---@type CodeBlock[]
 	code_blocks = {},
+	query_results = {},
 }
 
 State.set_value = function(key, value)

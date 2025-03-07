@@ -11,22 +11,25 @@ local M = {}
 
 local ns_id = vim.api.nvim_create_namespace("krafna_preview")
 
-local function redraw(krafna_blocks, lookup_keys)
+--- Redraw the virtual text
+--- @param query_results table<number, QueryResult> Table with line numbers as keys and arrays of QueryResults as values
+--- @param lookup_keys string|nil
+local function redraw(query_results, lookup_keys)
 	-- Clear existing virtual text
 	vim.api.nvim_buf_clear_namespace(0, ns_id, 0, -1)
 
-	if krafna_blocks == nil or next(krafna_blocks) == nil then
+	if query_results == nil or next(query_results) == nil then
 		return
 	end
 
 	local line_nums = {}
-	for k in pairs(krafna_blocks) do
+	for k in pairs(query_results) do
 		table.insert(line_nums, k)
 	end
 	table.sort(line_nums)
 
 	for _, line_num in ipairs(line_nums) do
-		M.render_krafna_result(krafna_blocks[line_num], 0, line_num - 1, lookup_keys)
+		M.render_krafna_result(query_results[line_num], 0, line_num - 1, lookup_keys)
 	end
 end
 
@@ -41,8 +44,11 @@ local function generate_keymap_keys(num)
 	return s
 end
 
+--- @type table<number, QueryResult>
 local krafna_cache = {}
+--- @type table<string, string>
 local krafna_quick_access = {}
+--- @type table<string, boolean>
 local krafna_quick_access_keys = {}
 
 local function update_krafna_quick_access_keys(hash, keys)
@@ -99,13 +105,15 @@ local function render_quick_access(opts)
 	return true
 end
 
-local function set_quick_access(krafna_data)
-	if krafna_data == nil or next(krafna_data) == nil then
+--- Set the quick access keymaps
+--- @param query_results table<number, QueryResult> Table with line numbers as keys and arrays of QueryResults as values
+local function set_quick_access(query_results)
+	if query_results == nil or next(query_results) == nil then
 		return
 	end
 
 	local line_nums = {}
-	for k in pairs(krafna_data) do
+	for k in pairs(query_results) do
 		table.insert(line_nums, k)
 	end
 	table.sort(line_nums)
@@ -125,20 +133,25 @@ local function set_quick_access(krafna_data)
 	-- Generate key
 	local i = 1
 	for _, line_num in ipairs(line_nums) do
-		local krafna_code_block_data = krafna_data[line_num]
-		for _, data in ipairs(krafna_code_block_data) do
-			if data.metadata and not data.metadata.is_header then
-				data.metadata.keys = generate_keymap_keys(i)
-				krafna_quick_access[data.metadata.keys] = data.metadata["file.path"]
-				update_krafna_quick_access_keys(krafna_quick_access_keys, data.metadata.keys)
+		local query_result = query_results[line_num]
+		for _, row in ipairs(query_result.rows) do
+			if row.metadata then
+				row.metadata.keys = generate_keymap_keys(i)
+				krafna_quick_access[row.metadata.keys] = row.metadata["file.path"]
+				update_krafna_quick_access_keys(krafna_quick_access_keys, row.metadata.keys)
 				i = i + 1
 			end
 		end
 	end
 end
 
-M.render_krafna_result = function(result, bufnr, row, lookup_keys)
-	local formatted = formatters.krafna_result_as_table(result, lookup_keys)
+--- Render the krafna result as virtual text
+--- @param query_result QueryResult
+--- @param bufnr number
+--- @param row number
+--- @param lookup_keys string|nil
+M.render_krafna_result = function(query_result, bufnr, row, lookup_keys)
+	local formatted = formatters.krafna_result_as_table(query_result, lookup_keys)
 	vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, 0, {
 		virt_lines = formatted,
 		virt_lines_above = false,
