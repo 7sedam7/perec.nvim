@@ -4,6 +4,8 @@
 local PEREC_DIR = vim.fn.expand(vim.fn.expand("$PEREC_DIR"))
 local has_whichkey, whichkey = pcall(require, "which-key")
 
+local krafna = require("perec.krafna")
+local QueryResults = require("perec.objects.query_result").QueryResults
 local finders = require("perec.finders")
 local renderer = require("perec.renderer")
 local highlighters = require("perec.highlighters")
@@ -125,6 +127,89 @@ local config = {
 -------------------------------- Setup -----------------------------------------
 --------------------------------------------------------------------------------
 
+--- @type QueryResults
+local query_results = nil
+
+local function get_char_with_timeout(timeout_ms)
+	local char = nil
+	vim.fn.wait(timeout_ms, function()
+		local _char = vim.fn.getchar(0)
+		if _char ~= 0 then
+			char = _char
+			return true
+		end
+		return false
+	end)
+	return char
+end
+
+local function render_quick_access(opts)
+	opts = opts or {}
+
+	local lookup_keys = ""
+	while true do
+		renderer.redraw(query_results, lookup_keys)
+		vim.cmd("redraw")
+
+		local key = get_char_with_timeout(1000)
+		if key == nil then
+			break
+		end
+		local char = vim.fn.nr2char(key)
+
+		if char == "\27" then -- ESC key
+			break
+		end
+
+		lookup_keys = lookup_keys .. char
+		if query_results:only_match(lookup_keys) then
+			break
+		end
+	end
+
+	renderer.redraw(query_results)
+
+	if query_results.keys_to_paths[lookup_keys] then
+		vim.cmd("e " .. query_results.keys_to_paths[lookup_keys])
+	end
+
+	return true
+end
+
+local function update_virtual_text(opts)
+	opts = opts or {}
+	opts.from_cache = opts.from_cache or false
+
+	query_results = QueryResults:new()
+	local blocks = CodeBlock.find_within_buffer("krafna")
+
+	for _, block in ipairs(blocks) do
+		local block_end = block.start_line + block.num_lines
+
+		if not opts.from_cache then
+			local query_result = query_results:set(
+				block_end,
+				krafna.execute(block.content, { cwd = opts.cwd, metadata_fields = { "file.path" } })
+			)
+
+			if not query_result:is_empty() then
+				-- Set keymaps
+				if has_whichkey then
+					whichkey.add({
+						{ "<leader>pd", nil, desc = "Go to file from query preview", mode = "n", hidden = false },
+					})
+				end
+				vim.keymap.set("n", "<leader>pd", render_quick_access, {
+					desc = "Go to file from query preview",
+					noremap = true,
+					silent = true,
+				})
+			end
+		end
+	end
+	renderer.redraw(query_results, opts.lookup_keys)
+end
+
 local last_called = {}
 local render_delay = 500
 local function setup_autocmds(opts)
@@ -149,7 +234,7 @@ local function setup_autocmds(opts)
 
 					if buftype == "" and (filename ~= "" or vim.fn.exists("#BufNewFile<buffer>")) then
 						last_called[buff_id] = current_time
-						renderer.update_virtual_text(opts)
+						update_virtual_text(opts)
 					end
 				end
 			end,
@@ -164,7 +249,7 @@ local function setup_autocmds(opts)
 			end
 			pcall(vim.keymap.del, "n", "<leader>pd")
 
-			renderer.cleanup_state()
+			query_results:clear()
 		end,
 	})
 end
@@ -218,6 +303,6 @@ function M.setup(opts)
 	setup_autocmds(opts)
 end
 
-M.setup()
+-- M.setup()
 
 return M
