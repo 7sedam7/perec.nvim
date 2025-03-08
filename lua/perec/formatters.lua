@@ -20,6 +20,11 @@ local defaults = {
 	alternate_highlighter = "KrafnaTableRowEven",
 }
 
+-- TODO: Don't fold in the middle of a word and link, add link styling
+--- Split a line into multiple lines if it exceeds max_length
+--- @param columns table {string}
+--- @param opts table { max_length: number, highlighter: string }
+--- @return table { { string, string } }
 local function split_and_fold_line(columns, opts)
 	columns = vim.deepcopy(columns, true)
 
@@ -257,6 +262,7 @@ local function as_table(query_result, lookup_keys)
 	return result
 end
 
+-- TODO: Quick access should take you to the exact line where todo is
 --- Convert a QueryResult to a extmark formatted table
 --- @param query_result QueryResult
 --- @param lookup_keys string|nil
@@ -313,12 +319,7 @@ end
 --- @param lookup_keys string|nil
 --- @return table
 M.format = function(query_result, lookup_keys)
-	if
-		query_result
-		and query_result.header
-		and #query_result.header == 2
-		and (query_result.header[1] == "checked" or query_result.header[2] == "text")
-	then
+	if query_result and query_result.header and #query_result.header == 2 and query_result.header[1] == "checked" then
 		return as_todo(query_result, lookup_keys)
 	end
 

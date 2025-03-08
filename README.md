@@ -19,6 +19,7 @@ If you are using [render-markdown.nvim](https://github.com/MeanderingProgrammer/
   - You can query TASKS (`FROM MD_TASKS('<PEREC_DIR>')`)
 - There is a live render of queryies withinr Markdown files if in ``` krafna ``` code block.
   - If cells are "too wide" they will be folded to the next line. Default is 80 characters, but can be changed in options. (`defaults: { max_width = 80 }`)
+  - If result of a query is a table with 2 columns from which first one is "checked", it will render todo list with checkboxes instead of the table. (Folding is still applied)
 - If FROM is not specified, default is `FROM FORNTMATTER_DATA('<PEREC_DIR>')`.
 
 ## Installation with Plugin Managers
@@ -111,13 +112,14 @@ There is a live preview of the query as extmap bellow the query, that get's upda
 
 ## Roadmay
 (not in priority order, more stuff that benefits this in krafna repo roadmap)
-- [ ] Extract picker logic so it can be used by snacks and mini
 - [ ] Add templating support
+- [ ] Add one search instead of find files/grep files/etc
+- [ ] Extract picker logic so it can be used by snacks and mini
 - [ ] Setup working with encrypted files
 
 ## Acknowledgements
 
-- [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim/tree/4a28c135bc3548e398ba38178fec3f705cb26fe6) for table formatting inspiration
+- [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim/tree/4a28c135bc3548e398ba38178fec3f705cb26fe6) for table and todo formatting inspiration
 - [CodeRabbit](https://coderabbit.io) for code reviews
 - Various AI tools for help with answering questions faster then me searching on Google/StackOverflow
 
