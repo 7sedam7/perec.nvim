@@ -1,5 +1,8 @@
 local M = {}
 
+-- local log = require("plenary.log"):new()
+-- log.level = "debug"
+
 local top_left_pipe = "┌"
 local top_center_pipe = "┬"
 local top_right_pipe = "┐"
@@ -112,10 +115,10 @@ end
 --- Convert a QueryResult to a extmark formatted table
 --- @param query_result QueryResult
 --- @param lookup_keys string|nil
---- @return table
+--- @return table { { { string, string } } }
 local function as_table(query_result, lookup_keys)
 	if query_result == nil then
-		return nil
+		error("QueryResult is nil")
 	end
 
 	if query_result:is_empty() then
@@ -257,9 +260,68 @@ end
 --- Convert a QueryResult to a extmark formatted table
 --- @param query_result QueryResult
 --- @param lookup_keys string|nil
+--- @return table { { { string, string } } }
+local function as_todo(query_result, lookup_keys)
+	if query_result == nil then
+		error("QueryResult is nil")
+	end
+
+	if query_result:is_empty() then
+		return { { { "| No data |", "Conceal" } } }
+	end
+
+	local result = {}
+
+	for i, row in ipairs(query_result.rows) do
+		local folded_rows = split_and_fold_line(row.data, { highlighter = row_highlighter(i) })
+		for j, folded_row in pairs(folded_rows) do
+			if j == 1 then
+				local content = folded_row[2]
+				local quick_keys = lookup_keys
+						and row.metadata
+						and row.metadata.keys
+						and string.sub(row.metadata.keys, 1, #lookup_keys) == lookup_keys
+						and row.metadata.keys
+					or ""
+				if quick_keys ~= "" then
+					content = string.sub(content, #quick_keys + 1)
+				end
+
+				local result_row = {
+					row.data[1] == "true" and { "󰱒 ", "RenderMarkdownChecked" }
+						or { "󰄱 ", "RenderMarkdownUnchecked" },
+					{ "\t", "Conceal" },
+				}
+				table.insert(result_row, { quick_keys, "HopNextKey" })
+				table.insert(result_row, { content, folded_row[3] })
+
+				table.insert(result, result_row)
+			else
+				table.insert(result, {
+					{ "\t", "Conceal" },
+					{ folded_row[2], folded_row[3] },
+				})
+			end
+		end
+	end
+
+	return result
+end
+
+--- Convert a QueryResult to a extmark formatted table
+--- @param query_result QueryResult
+--- @param lookup_keys string|nil
 --- @return table
 M.format = function(query_result, lookup_keys)
-	-- TODO: if it has only 2 columns (checked, text) then as_todo
+	if
+		query_result
+		and query_result.header
+		and #query_result.header == 2
+		and (query_result.header[1] == "checked" or query_result.header[2] == "text")
+	then
+		return as_todo(query_result, lookup_keys)
+	end
+
 	return as_table(query_result, lookup_keys)
 end
 
