@@ -31,6 +31,7 @@ If you are using [render-markdown.nvim](https://github.com/MeanderingProgrammer/
       - `{{ file.name }}`: Name of the file being created
       - `{{ file.path }}`: Path of the file being created
   - You can execute lua code with `{% lua code %}`
+- There is a `:PerecToday` command that will create a new file with today's date in the format `YYYY-MM-DD.md` and open it in a new buffer with template from `PEREC_DIR/templates/daily.md`.
 
 ## Installation with Plugin Managers
 

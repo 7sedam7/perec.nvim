@@ -44,12 +44,12 @@ M.query_files = function(opts)
 	finders.query_files(opts)
 end
 
-M.create_file = function(opts)
+M.create_file = function(input, opts)
 	opts = opts or {}
 	opts.cwd = opts.cwd or PEREC_DIR
 
 	-- Create a new document in the PEREC_DIR
-	local input = vim.fn.input("Enter document name: ")
+	input = input or vim.fn.input("Enter document name: ")
 	input = vim.split(input, ":", { trimempty = true })
 	local filename, template_name = input[1], input[2]
 
@@ -284,6 +284,17 @@ local function setup_autocmds(opts)
 	})
 end
 
+local function setup_commands(opts)
+	opts = opts or {}
+	opts.cwd = opts.cwd or PEREC_DIR
+
+	vim.api.nvim_create_user_command("PerecToday", function()
+		local today = os.date("%Y-%m-%d")
+		M.create_file(today .. ":daily", opts)
+	end, { force = true })
+end
+
+--- @private
 local function setup_keymaps(config)
 	-- Use which-key if available
 	if has_whichkey then
@@ -330,6 +341,7 @@ function M.setup(opts)
 
 	highlighters.setup_highlighters()
 	setup_keymaps(config)
+	setup_commands(opts)
 	setup_autocmds(opts)
 end
 
