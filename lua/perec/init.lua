@@ -49,7 +49,10 @@ M.create_file = function(opts)
 	opts.cwd = opts.cwd or PEREC_DIR
 
 	-- Create a new document in the PEREC_DIR
-	local filename = vim.fn.input("Enter document name: ")
+	local input = vim.fn.input("Enter document name: ")
+	input = vim.split(input, ":", { trimempty = true })
+	local filename, template_name = input[1], input[2]
+
 	if not filename:match("%.md$") then
 		filename = filename .. ".md"
 	end
@@ -62,22 +65,49 @@ M.create_file = function(opts)
 	local stat = vim.loop.fs_stat(filepath)
 	if stat and stat.type == "file" then
 	else
-		-- Add template content
-		local template = {
+		local default_template = {
 			"---",
 			"tags:",
 			"---",
 			"",
 			"# " .. vim.fn.fnamemodify(filepath, ":t:r"), -- Add filename as title
 			"",
-			"",
+			"{{__cursor__}}",
 		}
+		local template = default_template
+		local cursor_pos = { 1, 0 }
+
+		-- Load specified template and evaluate
+		local file = template_name ~= nil and io.open(opts.cwd .. "/templates/" .. template_name .. ".md", "r") or nil
+		if file ~= nil then
+			template = file:read("*all")
+			file:close()
+
+			template = vim.split(
+				renderer.render_template(template, {
+					today = os.date("%Y-%m-%d"),
+					now = os.date("%Y-%m-%d %H:%M"),
+					file = { name = vim.fn.fnamemodify(filepath, ":t:r"), path = filepath },
+				}),
+				"\n"
+			)
+		end
+
+		-- Find the cursor position
+		for i, line in pairs(template) do
+			local col = line:find("{{__cursor__}}")
+			if col then
+				cursor_pos = { i, col - 1 }
+				template[i] = line:gsub("{{__cursor__}}", "")
+				break
+			end
+		end
 
 		-- Set the lines in buffer
 		vim.api.nvim_buf_set_lines(0, 0, -1, false, template)
 
 		-- Move cursor to the end
-		vim.api.nvim_win_set_cursor(0, { 6, 0 })
+		vim.api.nvim_win_set_cursor(0, cursor_pos)
 
 		-- Start in insert mode
 		vim.cmd("startinsert")

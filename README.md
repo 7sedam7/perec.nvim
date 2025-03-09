@@ -21,6 +21,16 @@ If you are using [render-markdown.nvim](https://github.com/MeanderingProgrammer/
   - If cells are "too wide" they will be folded to the next line. Default is 80 characters, but can be changed in options. (`defaults: { max_width = 80 }`)
   - If result of a query is a table with 2 columns from which first one is "checked", it will render todo list with checkboxes instead of the table. (Folding is still applied)
 - If FROM is not specified, default is `FROM FORNTMATTER_DATA('<PEREC_DIR>')`.
+- There is templating engine for new files.
+  - When creating a new file, you can specify <file_name>:<template_name> and new file will be created with template within `PEREC_DIR/templates/<template_name>.md` file.
+  - You can specify variables with `{{ var_name }}`
+    - There are default variables available:
+      - `{{ today }}`: Current date in format `YYYY-MM-DD`
+      - `{{ now }}`: Current time in format `YYYY-MM-DD HH:MM`
+      - You can have nested variables and this are default available:
+      - `{{ file.name }}`: Name of the file being created
+      - `{{ file.path }}`: Path of the file being created
+  - You can execute lua code with `{% lua code %}`
 
 ## Installation with Plugin Managers
 
@@ -102,7 +112,7 @@ require('perec').setup({
 - `<leader>pg`: [grep_files] Grep files within Perec vault
 - `<leader>pp`: [find_queries] Find krafna queries within Perec vault
 - `<leader>pq`: [query_files] Query files within Perec vault (opens query within cursor if there is one)
-- `<leader>pa`: [create_file] Create a new buffer within Perec vault
+- `<leader>pa`: [create_file] Create a new buffer within Perec vault (you can specify template, described above)
 - `<leader>pd`: [render_quick_access] Renders quick access letters over the rows of the rendered table. Pressing them will open a file associated with that row in a new buffer.
 - Customize by passing custom keymaps in `.setup()`
 
