@@ -70,7 +70,7 @@ M.create_file = function(input, opts)
 			"tags:",
 			"---",
 			"",
-			"# " .. vim.fn.fnamemodify(filepath, ":t:r"), -- Add filename as title
+			"# " .. vim.fn.fnamemodify(filepath, ":t:r"),
 			"",
 			"{{__cursor__}}",
 		}
@@ -290,7 +290,7 @@ local function setup_commands(opts)
 
 	vim.api.nvim_create_user_command("PerecToday", function()
 		local today = os.date("%Y-%m-%d")
-		M.create_file(today .. ":daily", opts)
+		M.create_file("daily/" .. today .. ":daily", opts)
 	end, { force = true })
 end
 
