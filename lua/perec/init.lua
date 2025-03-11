@@ -181,7 +181,7 @@ local function render_quick_access(opts)
 		renderer.redraw(query_results, lookup_keys)
 		vim.cmd("redraw")
 
-		local key = get_char_with_timeout(1000)
+		local key = lookup_keys == "" and get_char_with_timeout(2000) or get_char_with_timeout(1000)
 		if key == nil then
 			break
 		end
