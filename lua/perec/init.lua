@@ -279,7 +279,9 @@ local function setup_autocmds(opts)
 			end
 			pcall(vim.keymap.del, "n", "<leader>pd")
 
-			query_results:clear()
+			if query_results then
+				query_results:clear()
+			end
 		end,
 	})
 end
@@ -345,6 +347,6 @@ function M.setup(opts)
 	setup_autocmds(opts)
 end
 
--- M.setup()
+M.setup()
 
 return M

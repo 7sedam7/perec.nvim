@@ -36,7 +36,9 @@ end
 --- @param lookup_keys string|nil
 M.render_krafna_result = function(query_result, bufnr, row, lookup_keys)
 	local formatted = formatters.format(query_result, lookup_keys)
-	vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, 0, {
+	table.insert(formatted, {}) -- Add an empty line
+
+	vim.api.nvim_buf_set_extmark(bufnr, ns_id, row + 1, 0, {
 		virt_lines = formatted,
 		virt_lines_above = false,
 		ui_watched = true,
